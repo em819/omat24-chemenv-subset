@@ -1,0 +1,15 @@
+# The OMat24 training sub-datasets, one per line, in canonical order.
+# The SLURM array index selects a line (0-based, comments and blanks skipped).
+# Both tokenize_omat24.py and submit_tokenize.sh read this file, so edit it here
+# only -- e.g. if your extxyz files cover a different set of sub-datasets.
+aimd-from-PBE-1000-npt
+aimd-from-PBE-1000-nvt
+aimd-from-PBE-3000-npt
+aimd-from-PBE-3000-nvt
+rattled-1000
+rattled-1000-subsampled
+rattled-300
+rattled-300-subsampled
+rattled-500
+rattled-500-subsampled
+rattled-relax

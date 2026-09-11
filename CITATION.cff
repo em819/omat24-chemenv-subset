@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+title: >-
+  Subset selection from OMat24 with interpretable local chemical-environment
+  descriptors
+message: >-
+  If you use this software or the derived training subset, please cite both the
+  software (this repository) and the accompanying paper.
+type: software
+authors:
+  - family-names: Moerman
+    given-names: Evgeny
+    email: evgeny.moerman@uni.lu
+    affiliation: University of Luxembourg
+repository-code: 'https://github.com/CHANGE_ME/omat24-chemenv-subset'
+license: MIT
+version: 1.0.0
+date-released: '2026-09-11'
+keywords:
+  - machine-learned force fields
+  - MACE
+  - OMat24
+  - dataset subset selection
+  - coordination environments
+  - chemenv
+preferred-citation:
+  type: article
+  title: 'Select Local, Generalize Global: Interpretable, chemical-environment-based subset selection for general-purpose machine-learning force fields'
+  authors:
+    - family-names: Moerman
+      given-names: Evgeny
+      affiliation: University of Luxembourg
+  year: 2026
+  doi: 'TODO'
+  journal: 'TODO'

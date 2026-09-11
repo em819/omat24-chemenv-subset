@@ -1,0 +1,88 @@
+# Export-only config: rebuild the model from a checkpoint and write the .model
+# files, without training.
+#
+# How it skips training: max_num_epochs is set to the checkpoint's epoch, so
+# MACE's `while epoch < max_num_epochs` loop never runs and run_train.py falls
+# through to the cueq->e3nn conversion, the model save and the eval section.
+#
+# Run it from a directory containing only the checkpoint you want to export.
+
+# ===== identifiers / I/O =====
+name             : "mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
+train_file       : "../processed_data/train"
+valid_file       : "../processed_data/val"
+test_dir         : "../processed_data/test"
+statistics_file  : "../processed_data/statistics_fixed.json"
+
+# Everything is written here, so the training run is left untouched.
+results_dir      : "."
+log_dir          : "."
+checkpoints_dir  : "."     # put only the checkpoint you want to export here
+model_dir        : "."     # where <name>.model / <name>_compiled.model land
+
+# ===== model architecture (must match training so the weights load) =====
+model               : "MACE"
+interaction_first   : "RealAgnosticDensityInteractionBlock"
+interaction         : "RealAgnosticDensityResidualInteractionBlock"
+hidden_irreps       : "128x0e + 128x1o"
+num_interactions    : 2
+num_radial_basis    : 10
+r_max               : 6.0
+pair_repulsion      : True
+distance_transform  : "Agnesi"
+mean                : 0.0
+std                 : 1.0
+atomic_numbers      : '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83]'
+
+# ===== data quantities =====
+energy_key       : 'energy'
+forces_key       : 'forces'
+stress_key       : 'stress'
+compute_stress   : True
+compute_polarizability : False
+compute_atomic_dipole  : False
+
+# ===== loss (only used to build the eval error table) =====
+loss             : "universal"
+energy_weight    : 1
+forces_weight    : 10
+stress_weight    : 10
+huber_delta      : 0.01
+
+# ===== optimizer (an optimizer object must exist to load the checkpoint) =====
+amsgrad          : True
+lr               : 1.0e-3
+weight_decay     : 1.0e-6
+clip_grad        : 100
+ema              : True
+ema_decay        : 0.999
+
+# ===== LR schedule + early stopping (unused, since no training runs) =====
+scheduler_patience : 5
+lr_factor          : 0.8
+patience           : 40
+
+# ===== batching =====
+batch_size         : 128
+valid_batch_size   : 64
+
+max_num_epochs     : 792            # the checkpoint's epoch, so training is skipped
+
+# ===== reporting =====
+eval_interval      : 1
+error_table        : "PerAtomMAE"
+
+# ===== runtime =====
+device             : cuda           # one GPU is enough, or "cpu"
+default_dtype      : "float32"      # must match training
+seed               : 1
+num_workers        : 24
+distributed        : True
+restart_latest     : True           # loads the newest checkpoint from checkpoints_dir
+launcher           : "slurm"
+save_cpu           : True
+keep_checkpoints   : True
+enable_cueq        : True           # must stay True; MACE converts to e3nn on save
+
+# ===== logging =====
+wandb              : False

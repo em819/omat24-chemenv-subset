@@ -1,0 +1,2 @@
+# MACE MAE_F [meV/A], over the atoms of each ceiling bin
+bin_meV_per_A,n_structures,n_atoms,ceiling,v14,OMAT0,DIRECT,rdm1,rdm2,rdm3,rdm4,seed_mean,seed_sd,best

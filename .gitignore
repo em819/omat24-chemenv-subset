@@ -1,0 +1,54 @@
+# ---- outputs: everything real this pipeline produces is far too big for git --
+# Stage 01-04
+*.hdf5
+*.h5
+*.parquet
+*.duckdb
+*.duckdb.wal
+restart.npz
+best_subset_*.txt
+env_ids_found_distribution.txt
+out*.log
+log_*.txt
+
+# Stage 05-08
+*.xyz
+*.model
+*.pt
+processed_data/
+preprocess_shards_*/
+results_*/
+logs_*/
+checkpoints/
+wandb/
+
+# Stage 09-10: benchmark outputs. The two committed result directories are
+# re-included below.
+results/
+results_litraj_nebdft2k/
+bands/
+*.npz
+*.traj
+
+!09_benchmarks/matpes/paper_tables/
+!09_benchmarks/matpes/paper_tables/**
+!09_benchmarks/matcalc/results/
+!09_benchmarks/matcalc/results/**
+
+# ---- SLURM ------------------------------------------------------------------
+slurm-*.out
+*-%j.out
+*-%j.err
+*.out
+*.err
+
+# ---- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ---- editors / OS -----------------------------------------------------------
+.DS_Store
+*.swp

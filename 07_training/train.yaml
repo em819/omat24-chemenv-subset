@@ -1,0 +1,79 @@
+# ===== identifiers / I/O =====
+name             : "mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
+train_file       : "../processed_data/train"
+valid_file       : "../processed_data/val"
+test_dir         : "../processed_data/test"
+statistics_file  : "../processed_data/statistics_fixed.json"
+results_dir      : "./results_subset_omat"
+log_dir          : "./logs_omat"
+
+# ===== model architecture (matches mace-omat-0 / Table XVII) =====
+model               : "MACE"
+interaction_first   : "RealAgnosticDensityInteractionBlock"
+interaction         : "RealAgnosticDensityResidualInteractionBlock"
+hidden_irreps       : "128x0e + 128x1o"
+num_interactions    : 2
+num_radial_basis    : 10
+r_max               : 6.0
+pair_repulsion      : True
+distance_transform  : "Agnesi"
+mean                : 0.0
+std                 : 1.0
+atomic_numbers      : '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83]'
+
+# ===== data quantities =====
+energy_key       : 'energy'
+forces_key       : 'forces'
+stress_key       : 'stress'
+compute_stress   : True
+compute_polarizability : False
+compute_atomic_dipole  : False
+
+# ===== loss (paper §XVI: weighted Huber on E + adaptive Huber on F + Huber on σ) =====
+loss             : "universal"      # was implicit WeightedEnergyForcesLoss
+energy_weight    : 1
+forces_weight    : 10
+stress_weight    : 10
+huber_delta      : 0.01
+
+# ===== optimizer (paper: AMSGrad variant of Adam) =====
+amsgrad          : True             # was unset (vanilla Adam)
+lr               : 1.0e-3           # was 0.01 — sqrt-scaled from paper's 1e-3 (effective batch ~12k → yours ~1.3k)
+weight_decay     : 1.0e-6           # was 1e-8 — mild bump for reduced-data regularization
+clip_grad        : 100              # was 10 — paper value
+ema              : True
+ema_decay        : 0.999            # paper value (do NOT raise to 0.99999)
+
+# ===== LR schedule + early stopping =====
+scheduler_patience : 5              # epochs before plateau-triggered LR drop
+lr_factor          : 0.8            # decay multiplier on plateau
+patience           : 40             # early-stop if no improvement for 40 epochs
+
+# ===== batching =====
+batch_size         : 128             # per-GPU; effective ~1280 with 80 procs
+valid_batch_size   : 64
+
+# ===== run length =====
+max_num_epochs     : 1000            # generous upper bound; rely on `patience` to stop
+
+# ===== reporting =====
+eval_interval      : 1
+error_table        : "PerAtomMAE"
+
+# ===== runtime =====
+device             : cuda
+default_dtype      : "float32"      # paper value
+seed               : 1
+num_workers        : 24
+distributed        : True
+launcher           : "slurm"
+save_all_checkpoints  : True
+restart_latest     : True           # ← here
+save_cpu           : True
+keep_checkpoints   : True
+enable_cueq        : True
+
+# ===== logging =====
+wandb              : True
+wandb_project      : "mace-sset-ncov_2gen_chenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
+wandb_name         : "subset-from-scratch-paper-recipe-delta-0.01-lr-1e-3"
