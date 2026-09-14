@@ -7,8 +7,35 @@
 #
 # Run it from a directory containing only the checkpoint you want to export.
 
-# ===== identifiers / I/O =====
-name             : "mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THE KEYS IN THIS BLOCK <<<
+#
+# name             MUST MATCH train.yaml's `name` exactly -- MACE reconstructs
+#                  the checkpoint filename from it. It also becomes the stem of
+#                  the two exported files, <name>_compiled.model and
+#                  <name>_run-1.model.
+#
+# max_num_epochs   (further down, line ~69) MUST BE <= THE EPOCH OF THE
+#                  CHECKPOINT YOU ARE EXPORTING. That is the whole mechanism:
+#                  the training loop is skipped and run_train falls through to
+#                  the cueq->e3nn conversion and model save. The published model
+#                  is the epoch-792 checkpoint, hence 792. Change it if you
+#                  export a different epoch.
+#
+# train_file /     The stage-06 HDF5 shards and statistics_fixed.json, same
+# valid_file /     values as train.yaml. MACE still builds the data loaders even
+# test_dir /       though it trains nothing, so they must resolve.
+# statistics_file
+#
+# checkpoints_dir  Where MACE looks for the checkpoint. It is "." and
+#                  restart_latest picks the NEWEST .pt it finds, so COPY EXACTLY
+#                  ONE CHECKPOINT into the directory you launch from. Keeping
+#                  results_dir / model_dir / log_dir at "." is what leaves the
+#                  live stage-07 training run untouched.
+#
+# Everything else must match training or the weights will not load.
+# ============================================================================
+name             : "mace-subset-chemenv-v14-T100-a1-suppm-omat-medium"
 train_file       : "../processed_data/train"
 valid_file       : "../processed_data/val"
 test_dir         : "../processed_data/test"
@@ -19,6 +46,7 @@ results_dir      : "."
 log_dir          : "."
 checkpoints_dir  : "."     # put only the checkpoint you want to export here
 model_dir        : "."     # where <name>.model / <name>_compiled.model land
+# ============================================================================
 
 # ===== model architecture (must match training so the weights load) =====
 model               : "MACE"

@@ -18,10 +18,15 @@ byte-faithful to OMat24.
 ## Run
 
 ```bash
-sbatch submit_generate_train_set.sh
+export SUBSET_IDS=/path/to/best_subset_....txt     # stage 04 output
+export OMAT_XYZ_DIR=/path/to/omat24_extxyz         # the training split as extxyz
+export TRAIN_XYZ=subset_train.xyz                  # -> stage 06's train_file
+sbatch --account=<your allocation> submit_generate_train_set.sh
 ```
 
-Arguments (see `--help`): the id list, the input extxyz files, the output path.
+All three are documented in the `>>> USER CONFIGURATION <<<` block at the top of
+`submit_generate_train_set.sh`; the first two are required. The Python script
+itself is pure argparse (`--help`).
 
 `--glob-pattern` defaults to `**/*xyz`, matched recursively, so it finds both
 `<xyz-dir>/<subset>.xyz` (flat — what stage 01's auto-detection expects) and
@@ -32,12 +37,14 @@ up immediately in the counts.
 
 ## Input
 
-- `best_subset_*.txt` from stage 04
-- the OMat24 training split in extxyz form
+- `SUBSET_IDS` — `best_subset_*.txt` from stage 04 (or the published id list,
+  which lets you skip stages 01–04 entirely)
+- `OMAT_XYZ_DIR` — the OMat24 training split **in extxyz form**
 
-> The extxyz files are produced from the OMat24 ASE databases by a conversion
-> step that is outside the scope of this repository. Stage 05 assumes they
-> already exist.
+> This stage streams raw text and never parses a frame, which is what makes its
+> output byte-faithful to OMat24. It therefore cannot read an ASE database and
+> cannot read a gzipped file. Converting the OMat24 ASE databases to extxyz is
+> outside the scope of this repository — see [`../DATA.md`](../DATA.md).
 
 ## Boundary check
 

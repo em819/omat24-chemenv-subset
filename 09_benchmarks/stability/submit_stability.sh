@@ -14,12 +14,36 @@
 
 set -euo pipefail
 
-# >>> EDIT <<<
-VENV="${ARENA_VENV:?set ARENA_VENV -- see envs/envD-mliparena}"
-# <-- your checkpoint (the ONLY thing you normally change between runs)
-MODEL="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/4th_generation_tokens_train-mlff/mace-models/v14_T100_alpha1_support_material/be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_num_radial_basis10/compile_model/converged/mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10_run-1.model"   # <-- your checkpoint
-MODEL_NAME="mace-omat-medium-subset-v14_T100_a1_suppm_0.01"
-OUTDIR="$SLURM_SUBMIT_DIR/results"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# ARENA_VENV   REQUIRED. Path to the env D virtualenv DIRECTORY -- see
+#              envs/envD-mliparena/. e.g. export ARENA_VENV=/opt/envs/envD-mliparena
+#
+# MODEL        REQUIRED. Path to the MACE model FILE to benchmark. Use the
+#              *_run-1.model exported by stage 08 -- NOT *_compiled.model,
+#              which MatCalc and MatPES take instead.
+#
+# MODEL_NAME   Short label; becomes part of the output parquet filenames
+#              (<MODEL_NAME>-heating.parquet, <MODEL_NAME>-compression.parquet).
+#              Must be the same for the MD step and the aggregate step below.
+#
+# OUTDIR       Where trajectories, markers and parquet files are written.
+#
+# HF_CACHE     HuggingFace cache holding the RM24 structure database
+#              (atomind/mlip-arena -> stability/random-mixture.db). It must be
+#              staged from a machine with internet -- see the comment below.
+#              Only the presence check uses this variable; the download location
+#              itself follows the standard HF_HOME/HF cache rules.
+#
+#     sbatch --account=<your allocation> --partition=<gpu partition> submit_stability.sh
+# ============================================================================
+VENV="${ARENA_VENV:?set ARENA_VENV to the envD-mliparena virtualenv directory -- see envs/envD-mliparena}"
+MODEL="${MODEL:?set MODEL to the *_run-1.model exported by stage 08 (NOT _compiled.model)}"
+MODEL_NAME="${MODEL_NAME:-mace-omat-medium-subset-v14_T100_a1_suppm_0.01}"
+OUTDIR="${OUTDIR:-$SLURM_SUBMIT_DIR/results}"
+HF_CACHE="${HF_CACHE:-$HOME/.cache/huggingface}"
+# ============================================================================
 
 module load env/release/2024.1
 module load Python/3.12.3-GCCcore-13.3.0
@@ -43,8 +67,8 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 #              hf_hub_download(repo_id='atomind/mlip-arena', repo_type='dataset',
 #                              subfolder='stability', filename='random-mixture.db')"
 #
-if [ ! -d "$HOME/.cache/huggingface" ]; then
-    echo "WARNING: ~/.cache/huggingface not found. The RM24 database will be" >&2
+if [ ! -d "$HF_CACHE" ]; then
+    echo "WARNING: $HF_CACHE not found. The RM24 database will be" >&2
     echo "         downloaded now; on an offline compute node that will fail." >&2
     echo "         Stage it from a login node first (see the comment above)." >&2
     if [ "${BENCH_OFFLINE:-0}" = "1" ]; then exit 1; fi

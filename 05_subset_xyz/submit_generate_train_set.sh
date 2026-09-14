@@ -19,24 +19,55 @@
 # The cost is one full scan of the source xyz regardless of subset size, so the
 # wall time is set by the TOTAL source data, not the subset.
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# SUBSET_IDS    REQUIRED. The FILE of selected OMat24 material ids, one per
+#               line, written by stage 04 as best_subset_*.txt. You can also use
+#               the published id list from the data archive to skip stages
+#               01-04 entirely. Example:
+#                 /data/work/selection/best_subset_coarsened_v14andAdeep_T100_...topup.txt
+#
+# OMAT_XYZ_DIR  REQUIRED. Root DIRECTORY holding the OMat24 training split as
+#               extxyz. Searched recursively by GLOB_PATTERN, so both layouts
+#               work: <dir>/<subset>.xyz (flat) and <dir>/<subset>/*.xyz
+#               (nested). This must be the extxyz form -- this stage streams raw
+#               text and never parses, so ASE databases cannot be used here and
+#               the files must NOT be gzipped. Typically the same directory you
+#               gave stage 01 as $OMAT_DATA_DIR.
+#
+# TRAIN_XYZ     OUTPUT file: the training set, all selected frames concatenated.
+#               This is what you point stage 06's preprocess.yaml train_file at.
+#
+# GLOB_PATTERN  Optional. Narrow it if OMAT_XYZ_DIR also holds xyz files that
+#               are not OMat24 source data; the log prints how many files were
+#               matched and how many frames scanned, so a wrong glob is visible
+#               immediately in the counts.
+#
+# CHEMENV_CONDA_ENV  Name of the conda environment holding env A.
+#
+#     sbatch --account=<your allocation> submit_generate_train_set.sh
+# ============================================================================
+SUBSET_IDS="${SUBSET_IDS:?set SUBSET_IDS to the best_subset_*.txt written by stage 04 (one material id per line)}"
+OMAT_XYZ_DIR="${OMAT_XYZ_DIR:?set OMAT_XYZ_DIR to the root directory holding the OMat24 training split as extxyz}"
+TRAIN_XYZ="${TRAIN_XYZ:-subset_train.xyz}"
+GLOB_PATTERN="${GLOB_PATTERN:-**/*xyz}"
+CHEMENV_CONDA_ENV="${CHEMENV_CONDA_ENV:-active_learning_omat24_python310}"
+# ============================================================================
+
 deactivate 2>/dev/null || true
-conda activate active_learning_omat24_python310
+conda activate "$CHEMENV_CONDA_ENV"
 
 # Keep BLAS single-threaded (genfromtxt is the only numpy use; harmless anyway).
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-# ---- EDIT THESE PER SUBSET --------------------------------------------------
-SUBSET="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/subset_construction/14_per_atom_score_with_dists_and_A_deep/T100_alpha1_support_material/best_subset_coarsened_v14andAdeep_T100_R0full_asymfloor_designa_supmaterials_ncov1_alpha1_uw0_topup.txt"
-XYZDIR="/project/home/p200243/tcp_datasets/OMat24_data/original_train_valid_split/train_ready_for_so3lr/all_subsets"
-OUTPUT="subset_v14_T100_alpha1_support_material_train.xyz"
-# -----------------------------------------------------------------------------
-
 python -u ./generate_train_set.py \
-    --subset-mat-ids "$SUBSET" \
-    --xyz-dir        "$XYZDIR" \
-    --output         "$OUTPUT" \
-    > "out_${OUTPUT%.xyz}.log" 2>&1
+    --subset-mat-ids "$SUBSET_IDS" \
+    --xyz-dir        "$OMAT_XYZ_DIR" \
+    --output         "$TRAIN_XYZ" \
+    --glob-pattern   "$GLOB_PATTERN" \
+    > "out_$(basename "${TRAIN_XYZ%.xyz}").log" 2>&1
 
-echo "Done. Check the tail of out_${OUTPUT%.xyz}.log: 'mat_ids matched X / Y' should be ~100%."
+echo "Done. Check the tail of out_$(basename "${TRAIN_XYZ%.xyz}").log: 'mat_ids matched X / Y' should be ~100%."

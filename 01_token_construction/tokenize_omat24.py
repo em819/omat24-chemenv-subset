@@ -21,6 +21,72 @@ import h5py
 import numpy as np
 from mpi4py.futures import MPICommExecutor
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or set the environment variables) <<<
+#
+# Every value here is read from the environment so that submit_tokenize.sh can
+# drive an 11-element job array without editing the source. Set them in your
+# shell (or in the submit script) rather than hardcoding paths below.
+#
+#   OMAT_DATA_DIR    REQUIRED. The directory that HOLDS THE 11 OMAT24 TRAINING
+#                    SUB-DATASETS listed in subsets.txt -- not one sub-dataset,
+#                    and not a single file. Each sub-dataset is looked up inside
+#                    it as either
+#                        $OMAT_DATA_DIR/<subset>/       -> ASE database dir
+#                        $OMAT_DATA_DIR/<subset>.xyz    -> extxyz file
+#                    e.g. OMAT_DATA_DIR=/data/omat24/train_extracted, holding
+#                    rattled-300/, rattled-relax/, ... or rattled-300.xyz, ...
+#                    Every frame must carry a periodic cell, info['sid'] and
+#                    per-atom initial_magmoms -- run check_input.py first.
+#                    There is deliberately NO default: a wrong data directory
+#                    would waste hundreds of node-days.
+#
+#   OMAT_INPUT_FORMAT   'auto' (default), 'ase-db' or 'extxyz'. 'auto' decides
+#                    per sub-dataset and refuses if a sub-dataset exists in both
+#                    forms. Note: compressed .xyz.gz / .extxyz.gz are NOT
+#                    supported by the tokeniser -- decompress first.
+#
+#   OMAT_FILE_TEMPLATE  Only if your extxyz files are not named <subset>.xyz.
+#                    A pattern with a {subset} placeholder, applied inside
+#                    $OMAT_DATA_DIR, e.g. 'all_structures_{subset}.xyz'.
+#
+#   OMAT_DB_INDEX    Which line of subsets.txt to process, 0-based (default 0).
+#                    submit_tokenize.sh sets it from $SLURM_ARRAY_TASK_ID.
+#
+#   OMAT_ALLOW_MISSING_MAGMOMS  Set to '1' ONLY if you deliberately want spin-0
+#                    tokens. Without magmoms ASE silently returns zeros and you
+#                    get a complete, plausible and WRONG token set.
+#
+# OUTPUT goes into the CURRENT WORKING DIRECTORY: chemenv_<subset>_rank<N>.hdf5,
+# one file per MPI rank. Run each sub-dataset in its own directory named exactly
+# as in subsets.txt -- stage 01b derives the sub-dataset label from that name.
+# ============================================================================
+#Requested backend; resolved to a concrete 'ase-db'/'extxyz' in main().
+INPUT_FORMAT = os.environ.get('OMAT_INPUT_FORMAT', 'auto').lower()
+#Which line of subsets.txt this run processes.
+DB_INDEX = int(os.environ.get('OMAT_DB_INDEX', '0'))
+#Set to '1' to accept inputs without per-atom magnetic moments (spin-0 tokens).
+ALLOW_MISSING_MAGMOMS = os.environ.get('OMAT_ALLOW_MISSING_MAGMOMS', '0') == '1'
+
+
+def data_dir():
+    """The directory holding the 11 sub-datasets ($OMAT_DATA_DIR). Raises if unset.
+
+    REPO CHANGE: this used to fall back to the author's absolute path on
+    MeluXina, which silently pointed every other user at a directory they do not
+    have. It is now required.
+    """
+    value = os.environ.get('OMAT_DATA_DIR')
+    if not value:
+        raise RuntimeError(
+            "OMAT_DATA_DIR is not set. Point it at the directory that HOLDS the "
+            "sub-datasets named in subsets.txt -- e.g. "
+            "export OMAT_DATA_DIR=/data/omat24/train_extracted , which contains "
+            "either <subset>/ directories (ASE DB) or <subset>.xyz files. "
+            "Run check_input.py --data-dir <that directory> first.")
+    return value
+
+
 #These objects needs to be passed to process_single_structure() but are not pickleable
 #Thus defined as global variables
 dataset = None
@@ -49,9 +115,9 @@ dataset = None
 # parse and broadcasts its result, so every rank would silently receive rank
 # 0's structure instead of the frame it seeked to.
 # ============================================================================
-#Requested backend; resolved to a concrete 'ase-db'/'extxyz' in main() (on EVERY
-#rank, before the executor starts, so workers see the resolved value too).
-INPUT_FORMAT = os.environ.get('OMAT_INPUT_FORMAT', 'auto').lower()
+#Resolved to a concrete 'ase-db'/'extxyz' in main() on EVERY rank, before the
+#executor starts, so workers see the resolved value too. The requested value is
+#read in the USER CONFIGURATION block at the top of this file.
 frame_offsets = None
 #The sub-dataset name from subsets.txt; set by main() on every rank.
 SUBSET_NAME = None
@@ -653,20 +719,18 @@ SUBSETS = _subsets()
 
 
 def main():
-    # REPO CHANGE: the data location was a hardcoded absolute path. It now comes
-    # resolve_input() above); OMAT_INPUT_FORMAT forces one if you prefer.
+    # All user-settable values come from the USER CONFIGURATION block at the top
+    # of this file; nothing site-specific is hardcoded here.
     global INPUT_FORMAT, SUBSET_NAME
-    db_dir = os.environ.get(
-        'OMAT_DATA_DIR',
-        "/project/home/p200243/tcp_datasets/OMat24_data/original_train_valid_split/train_extracted")
+    db_dir = data_dir()
 
     config_kwargs = {} # see tutorial on additional configuration
-    
+
     # REPO CHANGE (was `db_index = 0`): the 11 OMat24 sub-datasets were originally
     # processed by editing this constant and resubmitting 11 times. Reading it from
     # the environment makes the same 11 runs a single SLURM job array. Unset -> 0,
     # i.e. byte-identical behaviour to the as-run script.
-    db_index = int(os.environ.get('OMAT_DB_INDEX', '0'))
+    db_index = DB_INDEX
     if not 0 <= db_index < len(SUBSETS):
         raise IndexError(
             f"OMAT_DB_INDEX={db_index} is out of range for the {len(SUBSETS)} "
@@ -750,7 +814,7 @@ def main():
                        f"the published ones. Re-export the input with magnetic "
                        f"moments, or set OMAT_ALLOW_MISSING_MAGMOMS=1 to proceed "
                        f"deliberately.")
-                if os.environ.get('OMAT_ALLOW_MISSING_MAGMOMS', '0') != '1':
+                if not ALLOW_MISSING_MAGMOMS:
                     raise RuntimeError(msg)
                 print("WARNING: " + msg, flush=True)
             print(f"Input check passed for {dataset_path} (sid present, magmoms "

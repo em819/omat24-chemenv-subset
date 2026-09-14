@@ -43,7 +43,7 @@ fails. `OMAT_ALLOW_MISSING_MAGMOMS=1` overrides it deliberately.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `OMAT_DATA_DIR` | *(the author's path)* | directory holding the sub-datasets |
+| `OMAT_DATA_DIR` | *(required — no default)* | directory **holding** the 11 sub-datasets (not one sub-dataset, not a file) |
 | `OMAT_INPUT_FORMAT` | `auto` | `auto`, `ase-db` (fairchem `AseDBDataset`) or `extxyz` |
 | `OMAT_FILE_TEMPLATE` | *(unset)* | extxyz filename pattern, e.g. `all_structures_{subset}.xyz` |
 | `OMAT_DB_INDEX` | `0` | which line of `subsets.txt`; set from `SLURM_ARRAY_TASK_ID` |
@@ -81,10 +81,14 @@ run, so pass `EXPECTED_RANKS=10240` for those if you reproduce that.
 
 ```bash
 export OMAT_DATA_DIR=/path/to/omat24
-sbatch submit_tokenize.sh      # array 0-10; format auto-detected
+sbatch --account=<your allocation> submit_tokenize.sh   # array 0-10
 # ... once all array elements have finished:
-sbatch submit_concat.sh
+sbatch --account=<your allocation> submit_concat.sh
 ```
+
+Every variable is documented in the `>>> USER CONFIGURATION <<<` block at the
+top of each script. `OMAT_DATA_DIR` has no default — an unset one stops the job
+immediately rather than reading someone else's directory.
 
 Without SLURM:
 

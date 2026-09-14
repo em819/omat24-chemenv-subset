@@ -68,14 +68,33 @@ from io import StringIO
 #      output arrays are unchanged.
 # ============================================================================
 
-# REPO CHANGE: overridable via the environment; the defaults are the as-run
-# values. The input default assumes stage 10.1 wrote one directory up.
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or set the environment variables) <<<
+#
+#   CHEMENV_PRED_XYZ   INPUT FILE: all_structures_ref_and_predicted.xyz, written
+#                      by stage 10.1 (evaluate_and_merge.py). It must carry both
+#                      the model's predicted energy/forces AND the DFT
+#                      REF_energy / REF_forces. The default assumes stage 10.1
+#                      wrote it ONE DIRECTORY UP from where this job runs, which
+#                      is what submit_evaluate.sh's --outdir .. arranges.
+#
+#   CHEMENV_OUT_XYZ    OUTPUT FILE (per-rank files derived from this name), the
+#                      re-tokenised structures with per-site force and energy
+#                      errors attached to each Chemenv token. Stage 10.3 reads
+#                      it -- if you change the name here, pass the same name to
+#                      submit_extract_features.sh as $XYZ.
+#
+#   CHUNK_SIZE         Structures per chunk per MPI worker. Bounds per-rank
+#                      memory; tune only for performance.
+#   BANNED_ELEMENTS    Elements to skip entirely. Empty in the published run.
+# ============================================================================
 MACE_PRED_EXTXYZ = os.environ.get(
     "CHEMENV_PRED_XYZ", "../all_structures_ref_and_predicted.xyz")
 OUTPUT_XYZ = os.environ.get(
     "CHEMENV_OUT_XYZ", "all_structures_with_errors_and_v4chemenvs_mace_omat_medium.xyz")
 BANNED_ELEMENTS = set([])
 CHUNK_SIZE = 100  # structures per chunk per worker — tune this
+# ============================================================================
 
 lgf = None
 dataset = None

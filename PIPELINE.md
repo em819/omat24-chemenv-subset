@@ -6,6 +6,8 @@ counts are the checkpoints — if your numbers match at each boundary, your run
 matches the paper's.
 
 Environment ids (**A**–**D**) are defined in [`envs/README.md`](envs/README.md).
+The data each stage reads is catalogued in [`DATA.md`](DATA.md); every path is a
+named variable in that script's `>>> USER CONFIGURATION <<<` block.
 
 ---
 
@@ -28,8 +30,8 @@ Coordination environments come from pymatgen's `LocalGeometryFinder` /
 refinement is disabled (`STRUCTURE_REFINEMENT_NONE`) — this is essential, since
 site indices must stay aligned with the input structure.
 
-- **Input:** `db_dir` at the top of `main()` — the 11 extracted OMat24
-  sub-dataset directories.
+- **Input:** `$OMAT_DATA_DIR` — the directory holding the 11 OMat24
+  sub-datasets, as ASE databases or extxyz. Required; no default.
 - **Output:** one HDF5 file per MPI rank, `chemenv_<subset>_rank<N>.hdf5`.
 - **Launch:** `sbatch submit_tokenize.sh` (a `0-10` job array; the array index
   becomes `OMAT_DB_INDEX`, which picks the sub-dataset).
@@ -106,7 +108,8 @@ parquet files sharded by `hash(mat_id) % 1000`, and assembles `material_vectors`
 Counts are **not** normalised (the normalisation block is deliberately
 commented out; selection operates on raw per-material counts).
 
-- **Input:** `freq_chemenv.duckdb` (path at the top of the file — edit it).
+- **Input:** `freq_chemenv.duckdb` (`$CHEMENV_FREQ_DB`; see the USER
+  CONFIGURATION block at the top of the file).
 - **Output:** `environment_mapping`, `env_counts`, `material_vectors`, batch parquets.
 - **Launch:** `sbatch submit_integer_tokens.sh`.
 
@@ -148,8 +151,9 @@ it is what turns wall-atom depletion into enrichment):
 _MODIFIER_CHAIN = [("dA", "||'|'||dmin||'|'||a_bin"), ("A", "||'|'||a_bin"), ("", "")]
 ```
 
-- **Input:** `freq_chemenv.duckdb` and the stage-03 tables (paths at the top of
-  `main()` — edit them).
+- **Input:** `freq_chemenv.duckdb` and the stage-03 tables
+  (`$V10_ENV_FREQ_DB` / `$V10_TOKEN_VEC_DB`; see the USER CONFIGURATION block at
+  the top of the file).
 - **Output:** `best_subset_*.txt` (one material id per line) and
   `env_ids_found_distribution.txt` (per-token atom counts in the subset).
 - **Launch:** `sbatch submit_select_subset.sh`.
@@ -174,8 +178,9 @@ exactly (11 rungs + catch-all = 194,928,651 tokens; 3,443,621 classes).
 token in each comment line against the selected id list, and copies matching
 frames through verbatim (no re-parsing, no re-writing of the geometry).
 
-- **Input:** `best_subset_*.txt`, the OMat24 extxyz files.
-- **Output:** the subset training extxyz.
+- **Input:** `$SUBSET_IDS` (`best_subset_*.txt`) and `$OMAT_XYZ_DIR` (the
+  OMat24 training split as uncompressed extxyz).
+- **Output:** `$TRAIN_XYZ`, the subset training extxyz — stage 06's `train_file`.
 - **Launch:** `sbatch submit_generate_train_set.sh`.
 
 **Boundary check:** 64,648,643 frames scanned · **795,721 written** ·
@@ -183,7 +188,9 @@ frames through verbatim (no re-parsing, no re-writing of the geometry).
 from stage 01 exactly, which is what proves nothing was lost or double-counted.
 
 > The extxyz files themselves are produced from the OMat24 ASE databases by a
-> conversion step outside this repository. Stage 05 assumes they exist.
+> conversion step outside this repository. Stage 05 assumes they exist — it
+> streams raw text and cannot read an ASE database or a gzipped file. See
+> [`DATA.md`](DATA.md).
 
 ---
 
@@ -206,8 +213,9 @@ superset to the 68-element z-table (otherwise MACE fails at the first forward
 pass with `mat1 and mat2 shapes cannot be multiplied (Nx68 and 89x1)`), and pins
 `mean`/`std` to 0.0/1.0. `submit_preprocess.sh` chains it automatically.
 
-- **Input:** `preprocess.yaml` (`r_max` 6.0, `batch_size` 32, `num_process` 128,
-  68 atomic numbers, 89 E0s).
+- **Input:** `preprocess.yaml`. Its three dataset paths ship as `CHANGE_ME`
+  placeholders and must be edited (`r_max` 6.0, `batch_size` 32,
+  `num_process` 128, 68 atomic numbers, 89 E0s are the published values).
 - **Output:** `processed_data/{train,val,test}/` + `statistics_fixed.json`.
 - **Launch:** `sbatch submit_preprocess.sh`.
 

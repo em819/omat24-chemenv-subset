@@ -323,10 +323,40 @@ import numpy as np
 from mace.cli.eval_configs import main as mace_eval_configs_main
 
 
-# ---------------------------------------------------------------------------
-# Settings: edit these. Paths can also be overridden on the command line.
-# ---------------------------------------------------------------------------
-TEST_SET_PATH = '/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/train-mlff/prepare_train_val_and_test_set/test_set/matpes_no_rare_earths/matpes_pbe_2025.2_no_rare_earth.xyz'
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or pass the flags) <<<
+#
+# TEST_SET_PATH / --configs
+#     REQUIRED. The MatPES test set as a single extxyz FILE, carrying DFT
+#     energy / forces / stress. The published run used MatPES PBE 2025.2 with
+#     rare-earth structures removed (323,096 structures / 3,011,678 atoms) --
+#     the SAME file stage 06 uses as its test_file. Not produced by this
+#     repository; see DATA.md for where to get it and what to filter.
+#     None here means "must be given on the command line".
+#
+# MODEL_PATH / --model
+#     REQUIRED. The MACE model FILE to evaluate. Use the *_compiled.model
+#     exported by stage 08 (MatPES and MatCalc take the compiled export; the
+#     stability and NEB benchmarks take *_run-1.model instead).
+#
+# OUT_PATH / --output
+#     Output extxyz of per-structure predictions. A sibling directory
+#     `<OUT_PATH without extension>_paper/` is also written, and that directory
+#     is what --aggregate consumes.
+#
+# --label
+#     How this model is named in the aggregate tables. IT MATTERS: --aggregate
+#     treats any label starting with rdm / seed / random as a random-seed
+#     REPLICA defining the noise floor. Label replicas rdm1..rdm4 and everything
+#     else descriptively (Chemenv, OMAT0, DIRECT, ...).
+#
+# The statistical settings below (SEED, FRACTION, cutoffs, domain split) change
+# what is reported. Leave them as they are to reproduce the paper's tables.
+# ============================================================================
+TEST_SET_PATH = None                        # REQUIRED -- give it with --configs
+MODEL_PATH = None                           # REQUIRED -- give it with --model
+OUT_PATH = 'test_matpes_efs.xyz'            # override with --output
+# ============================================================================
 
 # MERGED (repo change): the as-run code shipped two 193 KB copies of this file,
 # one per evaluated model, differing ONLY in MODEL_PATH / MODEL_LABEL / OUT_PATH
@@ -335,8 +365,6 @@ TEST_SET_PATH = '/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/activ
 # scripts pass the flags. The duplicate `MODEL_LABEL = 'Chemenv'` that used to
 # sit here was dead code -- it is reassigned to None further down (see the
 # SEED_LABEL_PREFIXES note) and the second assignment always won.
-MODEL_PATH = '/path/to/your.model'          # override with --model
-OUT_PATH = 'test_matpes_efs.xyz'            # override with --output
 
 # --- random subsampling ----------------------------------------------------
 # FRACTION: 1.0 evaluates the whole dataset. 0.1 draws a random 10% of the
@@ -3905,6 +3933,23 @@ def main():
                          out_dir=args.aggregate_out,
                          ceiling_path=args.ceiling)
         return
+
+    # TEST_SET_PATH / MODEL_PATH are None by default (they used to be the
+    # author's absolute paths), so fail here with a message naming the flag
+    # rather than deep inside ASE or MACE with a confusing one.
+    if not args.configs:
+        raise SystemExit(
+            '--configs is required: the MatPES test set as a single extxyz '
+            'file (the published run used MatPES PBE 2025.2 with rare earths '
+            'removed, the same file stage 06 uses as test_file). Pass '
+            '--configs, or set TEST_SET_PATH in the USER CONFIGURATION block '
+            'at the top of this file. See DATA.md.')
+    if not args.model and not args.skip_eval:
+        raise SystemExit(
+            '--model is required: the *_compiled.model exported by stage 08. '
+            'Pass --model, or set MODEL_PATH in the USER CONFIGURATION block '
+            'at the top of this file. (--skip_eval reports on an existing '
+            '--output file and needs no model.)')
 
     configs = args.configs
     sample_info = None

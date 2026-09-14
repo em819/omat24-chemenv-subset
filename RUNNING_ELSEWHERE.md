@@ -146,7 +146,7 @@ needs the source edited.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `OMAT_DATA_DIR` | *(the author's path)* | directory holding the sub-datasets |
+| `OMAT_DATA_DIR` | *(required — no default)* | directory holding the sub-datasets |
 | `OMAT_INPUT_FORMAT` | `auto` | `auto`, `ase-db` or `extxyz` |
 | `OMAT_FILE_TEMPLATE` | *(unset)* | extxyz filename pattern, e.g. `all_structures_{subset}.xyz` |
 | `OMAT_DB_INDEX` | `0` | which line of `subsets.txt` |
@@ -178,20 +178,65 @@ fallback.
 | `V10_THREADS` / `V10_MEMORY` | 128 / `400GB` | DuckDB resources |
 | `V10_T`, `V10_DESIGN`, `V10_SUPPORT`, `V10_NCOV`, `V11_COST_ALPHA` | 100, `a`, `materials`, 1, 1 | the published selection settings |
 
-### Stages 05 – 08
+### Stage 05
 
-Already parameterised: stage 05 is pure argparse, stage 06 is driven by
-`preprocess.yaml`, stages 07 and 08 by their YAMLs. Point `MACE_VENV` at your
-env B and edit the paths in the YAML.
+| Variable | Default | Meaning |
+|---|---|---|
+| `SUBSET_IDS` | *(required)* | the `best_subset_*.txt` written by stage 04 |
+| `OMAT_XYZ_DIR` | *(required)* | root directory of the OMat24 training split **as extxyz** |
+| `TRAIN_XYZ` | `subset_train.xyz` | output; becomes stage 06's `train_file` |
+| `GLOB_PATTERN` | `**/*xyz` | narrow it if the directory holds other xyz files |
+
+### Stages 06 – 08
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MACE_VENV` | *(required)* | the env B virtualenv directory |
+| `CONFIG` | the stage's own YAML | `preprocess.yaml` / `train.yaml` / `compile.yaml` |
+| `SHARD_DIR` | `./preprocess_shards_$SLURM_JOB_ID` | stage 06 scratch |
+| `READ_PROCS` / `STATS_PROCS` / `TRAIN_SHARDS` | 128 | stage 06 parallelism |
+
+The three dataset paths in `preprocess.yaml` ship as `CHANGE_ME` placeholders;
+`preprocess_parallel.py` refuses to start until you edit them, naming the key.
+
+### Stage 09
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MATCALC_VENV` / `ARENA_VENV` / `MACE_VENV` | *(required)* | env C / env D / env B |
+| `MODEL` | *(required)* | `_compiled.model` for matcalc and matpes, `_run-1.model` for stability and nebdft2k |
+| `MODEL_NAME` | a descriptive default | goes into every output filename; keep it stable between run and aggregate |
+| `OUTDIR` | `$SLURM_SUBMIT_DIR/results…` | outputs |
+| `TESTSET` | *(required, matpes)* | the MatPES extxyz |
+| `NEB_CACHE_DIR` | *(required, nebdft2k)* | the prefetched nebDFT2k dataset |
+| `MATCALC_CACHE` / `HF_CACHE` | `~/.cache/…` | presence checks for the staged reference data |
+| `MATPES_RUNS` | *(required, aggregate)* | directory holding the per-model `*_paper` directories |
+| `RUN_DIRS` / `LABELS` / `CEILING_DIR` | the paper's seven models | edit in the script; the two arrays must be the same length |
 
 ### Stage 10
 
-| Variable | Default |
-|---|---|
-| `CHEMENV_PRED_XYZ` | `../all_structures_ref_and_predicted.xyz` |
-| `CHEMENV_OUT_XYZ` | `all_structures_with_errors_and_v4chemenvs_…xyz` |
+| Variable | Default | Meaning |
+|---|---|---|
+| `REF_XYZ` | *(required, 10.1)* | the reference extxyz with DFT energies/forces |
+| `MODEL` | *(required, 10.1)* | the model to evaluate |
+| `OUTDIR` | `..` | must be the **parent** of the directory 10.2 runs in |
+| `CHEMENV_PRED_XYZ` | `../all_structures_ref_and_predicted.xyz` | 10.2 input |
+| `CHEMENV_OUT_XYZ` | `all_structures_with_errors_and_v4chemenvs_…xyz` | 10.2 output; 10.3 must be pointed at the same name |
+| `XYZ` | 10.2's default output | 10.3 input |
+| `FEATURE_MODEL` | *(required, 10.3)* | the model features are extracted from — **the same one 10.1 used**, and never a `_compiled.model` |
+| `OUT_DIR` | `$SLURM_SUBMIT_DIR/mace_features` | 10.3 output |
+| `FEAT_DIR` | `../3_extract_features/mace_features` | 10.4 input |
+| `REPORT_OUT` | `$SLURM_SUBMIT_DIR/report_card.parquet` | 10.4 output |
 
-Stages 10.1, 10.3 and 10.4 take command-line flags.
+### Everywhere
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `CHEMENV_CONDA_ENV` | `active_learning_omat24_python310` | the conda env holding env A (stages 01–05, 10.2) |
+
+`#SBATCH --account` cannot read a shell variable, so it stays `CHANGE_ME` in
+every submit script — edit it, or override at submit time with
+`sbatch --account=… --partition=…`.
 
 ---
 
@@ -233,15 +278,17 @@ others fail fast with the command to run. See `09_benchmarks/README.md`.
 
 Small, deliberate, and documented rather than changed:
 
-- **`conda activate active_learning_omat24_python310`** is by name in the
-  stage-01–05 submit scripts. Rename your env to match, or edit that one line.
 - **EasyBuild `module load` lines** are MeluXina-specific. Delete them if your
   MPI, HDF5 and CUDA are already on the path.
-- **Model and reference paths in the stage-09 and stage-10 submit scripts** are
-  left as concrete examples under their existing `>>> EDIT <<<` markers, because
-  *which* file to point at (`_compiled.model` versus `_run-1.model`) is itself
-  information worth keeping visible.
-- **`#SBATCH --account=CHANGE_ME`** everywhere.
+- **`#SBATCH --account=CHANGE_ME`** everywhere, because a SLURM directive cannot
+  read a shell variable. Overridable at submit time.
+- The conda environment name defaults to `active_learning_omat24_python310`;
+  set `CHEMENV_CONDA_ENV` rather than editing the scripts.
+
+No absolute path from the original cluster remains anywhere in the scripts. Each
+one is a named variable in that script's `>>> USER CONFIGURATION <<<` block, and
+an input that cannot be guessed has no default at all — the job stops at once,
+naming the variable, rather than reading someone else's data.
 
 ---
 

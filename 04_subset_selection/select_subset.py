@@ -86,6 +86,51 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or set the environment variables) <<<
+#
+# INPUTS -- both are DuckDB files produced earlier in this pipeline. The
+# defaults are bare filenames, i.e. "in the current working directory", which is
+# the layout the submit script assumes (stages 02, 03 and 04 all run in
+# work/selection/). Give absolute paths if yours differ.
+#
+#   V10_TOKEN_VEC_DB  material_vectors.duckdb   <- written by stage 03
+#   V10_ENV_FREQ_DB   freq_chemenv.duckdb       <- written by stage 02
+#
+# RESOURCES
+#
+#   V10_THREADS       DuckDB threads (default 128).
+#   V10_MEMORY        What DuckDB is ALLOWED to take (default 400GB). NOTE this
+#                     is not the real memory requirement: the Python side alone
+#                     peaks near 165 GiB holding the CSR matrix and the
+#                     material-vector dict, and that allocation has no knob. On
+#                     a smaller machine you can only run a smaller corpus.
+#
+# SELECTION KNOBS -- the published subset used the values below, which are also
+# the in-file defaults, so leave them unset to reproduce the paper:
+#
+#   V10_T=100  V10_DESIGN=a  V10_SUPPORT=materials  V10_NCOV=1  V11_COST_ALPHA=1
+#
+# Further boolean knobs (V10_FLOORS, V10_TOPUP, V10_DIST_FLOOR, V13A_ASYM_FLOOR,
+# V13A_PRUNE, V13A_FULL_TOKEN) are documented beside their defaults in main().
+#
+# OUTPUTS, written to the CURRENT WORKING DIRECTORY under fixed names:
+#
+#   best_subset_*.txt                 one selected material id per line
+#                                     -> this is stage 05's --subset-mat-ids
+#   env_ids_found_distribution.txt    per-token atom counts of the subset
+#   restart.npz                       periodic checkpoint
+#
+# >>> RUN THIS IN ITS OWN, EMPTY WORKING DIRECTORY. <<< restart.npz is a fixed
+# filename, so a leftover one from a previous run makes a fresh run silently
+# RESUME that run instead of starting over.
+# ============================================================================
+TOKEN_VEC_DB_DEFAULT = os.environ.get('V10_TOKEN_VEC_DB', 'material_vectors.duckdb')
+ENV_FREQ_DB_DEFAULT  = os.environ.get('V10_ENV_FREQ_DB',  'freq_chemenv.duckdb')
+DUCK_THREADS_DEFAULT = int(os.environ.get('V10_THREADS', '128'))
+DUCK_MEMORY_DEFAULT  = os.environ.get('V10_MEMORY', '400GB')
+# ============================================================================
+
 # ---------------------------------------------------------------------------
 # BOOLEAN ENVIRONMENT OVERRIDES. Defined HERE, at the top, rather than beside
 # main()'s knobs, because ENABLE_FULL_TOKEN_RUNG is a MODULE-LEVEL constant read
@@ -2710,20 +2755,12 @@ def main():
     restart_interval = 50000
 
     
-    # REPO CHANGE: these two defaults were absolute paths into the author's
-    # scratch space. They are relative now; the V10_* overrides below are
-    # unchanged and remain the intended way to point at the real files.
-    #Location where token vectors are stored (stage 03 output)
-    token_vec_db = "material_vectors.duckdb"
-
-    #Location where total numbers of environments in OMat24 is stored (stage 02)
-    env_freq_db = "freq_chemenv.duckdb"
-
-    # Overrides so the script can be exercised on a small fixture without editing
-    # the production paths. Unset in normal use.
-    token_vec_db = os.environ.get('V10_TOKEN_VEC_DB', token_vec_db)
-    env_freq_db  = os.environ.get('V10_ENV_FREQ_DB',  env_freq_db)
-    duck_threads = int(os.environ.get('V10_THREADS', '128'))
+    # Paths and DuckDB resources come from the USER CONFIGURATION block at the
+    # top of this file (V10_TOKEN_VEC_DB / V10_ENV_FREQ_DB / V10_THREADS /
+    # V10_MEMORY). Nothing site-specific is hardcoded here.
+    token_vec_db = TOKEN_VEC_DB_DEFAULT     # stage 03 output
+    env_freq_db  = ENV_FREQ_DB_DEFAULT      # stage 02 output
+    duck_threads = DUCK_THREADS_DEFAULT
     # 400GB, not 500GB. The node has 503 GiB and the Python side alone peaks at
     # ~165 GiB holding mat_vecs_dict + the CSR matrix (measured system-wide peak on
     # the T=30 run: 188 GiB). Authorising DuckDB to take the entire node while
@@ -2731,7 +2768,7 @@ def main():
     # AFTER the dict exists (the floor top-up scan and the per-env_id distribution
     # query). 400GB still sits far above anything observed, so it costs no
     # spilling; it just stops the two allocators from being allowed to overcommit.
-    duck_memory  = os.environ.get('V10_MEMORY', '400GB')
+    duck_memory  = DUCK_MEMORY_DEFAULT
     coarsening_T = int(os.environ.get('V10_T', coarsening_T))
     coarsening_design = os.environ.get('V10_DESIGN', coarsening_design)
     enable_floors      = _env_flag('V10_FLOORS',     enable_floors)

@@ -10,6 +10,12 @@ them except the model file.
 | MLIP-Arena stability MD | `stability/` | D | 4 nodes × 4 GPU, 15 h | `_run-1.model` |
 | LiTraj nebDFT2k | `nebdft2k/` | D | 4 nodes × 4 GPU, 6 h | `_run-1.model` |
 
+Every path each benchmark needs — the venv, the model, the output directory and
+the reference-data cache — is a named variable in the
+`>>> USER CONFIGURATION <<<` block at the top of that benchmark's submit script.
+The model and the cache have no default. See [`../DATA.md`](../DATA.md) for what
+each reference dataset is and where to get it.
+
 Each benchmark fetches its own reference data, and the libraries download on
 first use. On a cluster whose compute nodes are offline (MeluXina among them)
 that has to happen from a login node first:
@@ -33,7 +39,8 @@ tasks; `merge_results.py` collects the per-rank outputs.
 
 ```bash
 export MATCALC_VENV=/path/to/envC
-sbatch submit_matcalc.sh          # --all-tabulated --dtype float64
+export MODEL=/path/to/..._compiled.model
+sbatch --account=<your allocation> submit_matcalc.sh   # --all-tabulated --dtype float64
 ```
 
 `ALLOWED_Z = {1..56} ∪ {72..83}` — the model's element coverage; anything else is
@@ -47,7 +54,7 @@ otherwise crashes on NaN features.
 > reduced from matcalc's defaults. It was not: against matcalc 0.5.1 the strain
 > envelopes (±1% normal, ±6% shear) and `fmax` (0.05) are exactly the defaults;
 > only the sampling density changed, 4 → 6 points per axis. See
-> `../../CHANGES_FROM_AS_RUN.md` (K2).
+> [`../../PIPELINE.md`](../../PIPELINE.md).
 >
 > **The fit-quality number is discarded.** `ElasticityCalc` computes
 > `r2_score_mean` and warns when it drops below `r2_min=0.95`, but
@@ -66,9 +73,16 @@ Committed results: `results/`.
 
 ```bash
 export MACE_VENV=/path/to/envB
-MODEL=… TESTSET=… OUT=… LABEL=Chemenv sbatch submit_eval_single.sh
-MATPES_RUNS=… sbatch submit_aggregate.sh
+MODEL=… TESTSET=… OUT=… LABEL=Chemenv sbatch --account=… submit_eval_single.sh
+MATPES_RUNS=… sbatch --account=… submit_aggregate.sh
 ```
+
+`submit_aggregate.sh` lists the paper's seven models in its `RUN_DIRS` /
+`LABELS` arrays. **Only the v14 entry is reproducible from this repository** —
+MACE-OMAT-0, the DIRECT-selected subset model and the four random-seed replicas
+are outside its scope. Cut the two arrays down to the models you actually have;
+the script checks that they are the same length and that every directory exists.
+See [`../DATA.md`](../DATA.md) §8.
 
 > **Label the random-seed replicas `rdm1`…`rdm4`.** `--aggregate` treats any
 > label beginning with `rdm` / `seed` / `random` as a replica defining the noise
@@ -91,7 +105,8 @@ because the released wheel does not export them.
 
 ```bash
 export ARENA_VENV=/path/to/envD
-sbatch submit_stability.sh        # --dtype float64 --cueq --element-policy supported
+export MODEL=/path/to/..._run-1.model
+sbatch --account=<your allocation> submit_stability.sh   # --dtype float64 --cueq
 ```
 
 > **Known issue (K1).** `build_worklist` puts the *same* `Atoms` object into
@@ -108,9 +123,11 @@ sbatch submit_stability.sh        # --dtype float64 --cueq --element-policy supp
 
 ```bash
 export ARENA_VENV=/path/to/envD
+export MODEL=/path/to/..._run-1.model
+export NEB_CACHE_DIR=<CACHE_DIR>
 # login node, once:
-python run_litraj_nebdft2k.py --prefetch --cache-dir <CACHE_DIR>
-sbatch submit_nebdft2k.sh
+python run_litraj_nebdft2k.py --prefetch --cache-dir "$NEB_CACHE_DIR"
+sbatch --account=<your allocation> submit_nebdft2k.sh
 ```
 
 > **This is the sensitivity-check protocol, not the published one.**

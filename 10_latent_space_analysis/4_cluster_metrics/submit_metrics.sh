@@ -21,7 +21,33 @@
 
 set -euo pipefail
 
-MACE_ENV="${MACE_VENV:?set MACE_VENV -- see envs/envB-mace}"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MACE_VENV  REQUIRED. Path to the env B virtualenv DIRECTORY -- the SAME venv
+#            stage 10.3 used. It additionally needs pyarrow and faiss-gpu-cu12:
+#                uv pip install pyarrow faiss-gpu-cu12
+#
+# FEAT_DIR   INPUT DIRECTORY holding stage 10.3's features_shard*.npy and
+#            meta_shard*.parquet. Default: stage 10.3's default output
+#            directory, reached relatively from here.
+#
+# REPORT_OUT OUTPUT parquet: one row per chemenv token, carrying kNN purity,
+#            compactness_z against a size-matched null, and the number of
+#            connected components of the kNN graph.
+#
+# KNN_BACKEND  faiss-gpu is the published setting (exact IndexFlatL2 on the
+#            node's GPUs). Valid choices are auto | faiss | faiss-gpu | ckdtree.
+#            WITHOUT A GPU use ckdtree (or faiss for the CPU faiss build);
+#            results are identical, only slower.
+#
+#     FEAT_DIR=... sbatch --account=<your allocation> submit_metrics.sh
+# ============================================================================
+MACE_ENV="${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv directory -- see envs/envB-mace}"
+FEAT_DIR="${FEAT_DIR:-../3_extract_features/mace_features}"   # stage 10.3 output
+REPORT_OUT="${REPORT_OUT:-$SLURM_SUBMIT_DIR/report_card.parquet}"
+KNN_BACKEND="${KNN_BACKEND:-faiss-gpu}"   # ckdtree if you have no GPU
+# ============================================================================
 
 module load env/release/2024.1
 #module load CUDA/12.6.0
@@ -35,7 +61,6 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-FEAT_DIR="${FEAT_DIR:-../3_extract_features/mace_features}"   # stage 10.3 output
 if ! compgen -G "$FEAT_DIR/features_shard*.npy" > /dev/null; then
     echo "ERROR: no feature shards under $FEAT_DIR -- has stage 10.3 finished?" >&2
     exit 1
@@ -47,14 +72,14 @@ fi
 python -u "$SLURM_SUBMIT_DIR/chemenv_feature_metrics.py" \
     --feature-glob "$FEAT_DIR/features_shard*.npy" \
     --meta-glob    "$FEAT_DIR/meta_shard*.parquet" \
-    --out          "$SLURM_SUBMIT_DIR/report_card.parquet" \
+    --out          "$REPORT_OUT" \
     --k 30 \
     --k-graph 15 \
     --var-keep 0.95 \
     --max-dims 50 \
     --max-atoms 0 \
     --min-size 20 \
-    --knn-backend faiss-gpu \
+    --knn-backend "$KNN_BACKEND" \
     --n-jobs "$SLURM_CPUS_PER_TASK" \
     > chemenv_metrics.log 2>&1
     # add --cosine to repeat in cosine geometry and check robustness

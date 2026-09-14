@@ -8,8 +8,12 @@
 
 ## Configure
 
-`train.yaml`. The data paths are relative — `../processed_data/...` — so launch
-the job from a directory that sits next to your `processed_data/`.
+`train.yaml`, in the `>>> USER CONFIGURATION <<<` block at the top: `name`, the
+four data paths, `results_dir` / `log_dir`, and the W&B keys. The data paths are
+relative — `../processed_data/...` — so launch the job from a directory that
+sits next to your `processed_data/`, or make them absolute.
+
+`submit_train.sh` needs `MACE_VENV`; `CONFIG` selects the YAML.
 
 Architecture (matches MACE-OMAT-0):
 
@@ -40,13 +44,14 @@ Training:
 
 ```bash
 export MACE_VENV=/path/to/envB
-sbatch submit_train.sh
+sbatch --account=<your allocation> submit_train.sh
 ```
 
 ## Notes
 
-- `wandb: True` in `train.yaml`. Set it to `False` or configure your own project
-  before running.
+- `wandb` is **`False`** by default, because W&B needs an account and a login
+  and a failed login stops the run. The published run used it: set it to `True`
+  and fill in your own `wandb_project` / `wandb_name` to match.
 - `enable_cueq` requires `cuequivariance` and `cuequivariance-torch` (0.8.1 in
   env B) and the CUDA module. Without them the run still works but is markedly
   slower.

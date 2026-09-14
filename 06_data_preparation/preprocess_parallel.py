@@ -420,6 +420,23 @@ def main():
     if not any([args.train_file, args.valid_file, args.test_file]):
         raise SystemExit("Nothing to do: give at least one of "
                          "--train-file/--valid-file/--test-file.")
+
+    # The shipped preprocess.yaml carries CHANGE_ME placeholders for the three
+    # dataset paths, because none of them can be guessed: train_file is stage
+    # 05's output and valid_file/test_file are datasets the user must supply.
+    # Catch the un-edited placeholder here, with a message naming the key, rather
+    # than letting it surface as a puzzling FileNotFoundError deep in a worker.
+    for _key, _val in (("train_file", args.train_file),
+                       ("valid_file", args.valid_file),
+                       ("test_file", args.test_file)):
+        if _val and "CHANGE_ME" in str(_val):
+            raise SystemExit(
+                f"{_key} is still the placeholder {_val!r}. Edit the USER "
+                f"CONFIGURATION block at the top of preprocess.yaml: train_file "
+                f"is the extxyz written by stage 05; valid_file and test_file "
+                f"are the validation and test sets you supply (the published run "
+                f"used the OMat24 validation split and MatPES PBE 2025.2, both "
+                f"with rare earths removed). See DATA.md.")
     if args.atomic_numbers is None:
         raise SystemExit("--atomic-numbers is required (string list, as in MACE).")
 

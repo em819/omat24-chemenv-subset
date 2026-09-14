@@ -37,11 +37,38 @@
 # The failure modes that matter are checked explicitly below.
 set -uo pipefail
 
-# >>> EDIT <<<
-export OMAT_DATA_DIR="${OMAT_DATA_DIR:?set OMAT_DATA_DIR to the directory holding the 11 sub-datasets}"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# OMAT_DATA_DIR   REQUIRED. Directory that HOLDS the 11 sub-datasets named in
+#                 subsets.txt -- NOT one sub-dataset and NOT a single file.
+#                 Inside it, each sub-dataset is either a directory
+#                 <subset>/ (ASE database) or a file <subset>.xyz (extxyz).
+#                 Example: /data/omat24/train_extracted
+#                 Public source: https://huggingface.co/datasets/fairchem/OMAT24
+#                 Every frame needs a periodic cell, info['sid'] and per-atom
+#                 initial_magmoms -- verify with check_input.py first.
+# OMAT_INPUT_FORMAT   auto (default) | ase-db | extxyz. 'auto' resolves each
+#                 sub-dataset on its own and refuses if both forms exist.
+# OMAT_FILE_TEMPLATE  Optional. extxyz filename pattern inside OMAT_DATA_DIR
+#                 when the files are not named <subset>.xyz, e.g.
+#                 'all_structures_{subset}.xyz'.
+# CHEMENV_CONDA_ENV   Name of the conda environment holding env A
+#                 (see envs/envA-chemenv/).
+#
+# Also site-specific, but SLURM directives cannot read shell variables, so edit
+# them at the top of this file or override on the command line:
+#     sbatch --account=<your allocation> --partition=<cpu partition> submit_tokenize.sh
+#
+# OUTPUT: one directory per sub-dataset under $SLURM_SUBMIT_DIR, each holding
+#         chemenv_<subset>_rank<N>.hdf5. Created automatically below.
+# ============================================================================
+export OMAT_DATA_DIR="${OMAT_DATA_DIR:?set OMAT_DATA_DIR to the directory HOLDING the 11 sub-datasets named in subsets.txt, e.g. /data/omat24/train_extracted}"
 export OMAT_INPUT_FORMAT="${OMAT_INPUT_FORMAT:-auto}"       # auto | ase-db | extxyz
+CHEMENV_CONDA_ENV="${CHEMENV_CONDA_ENV:-active_learning_omat24_python310}"
+# ============================================================================
 
-conda activate active_learning_omat24_python310    # see envs/envA-chemenv/
+conda activate "$CHEMENV_CONDA_ENV"                # see envs/envA-chemenv/
 
 module --force purge
 module load env/release/2024.1

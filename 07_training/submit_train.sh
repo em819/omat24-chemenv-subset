@@ -23,15 +23,35 @@
 #              from a directory that sits next to your processed_data/.
 # ============================================================================
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MACE_VENV   REQUIRED. Path to the env B virtualenv DIRECTORY (the one whose
+#             bin/activate you source) -- see envs/envB-mace/.
+#             e.g. export MACE_VENV=/opt/envs/envB-mace
+#
+# CONFIG      The MACE config for this stage. Its data paths point at stage 06's
+#             processed_data/ RELATIVELY, so launch this job from a directory
+#             sitting next to processed_data/ -- or edit the paths in the config.
+#
+# OUTPUT: checkpoints and logs under train.yaml's results_dir / log_dir.
+#         The published model is the epoch-792 checkpoint.
+#
+#     sbatch --account=<your allocation> --partition=<gpu partition> submit_train.sh
+# ============================================================================
+MACE_VENV="${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv directory -- see envs/envB-mace}"
+CONFIG="${CONFIG:-./train.yaml}"
+# ============================================================================
+
 module load env/release/2024.1
 module load CUDA/12.6.0
 
 conda deactivate 2>/dev/null || true
-source "${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv}/bin/activate"
+source "$MACE_VENV/bin/activate"
 
 export NCCL_SOCKET_IFNAME=ib0
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export NCCL_CROSS_NIC=1
 
-srun --kill-on-bad-exit=1 --gpu-bind=none python ./run_mace.py ./train.yaml
+srun --kill-on-bad-exit=1 --gpu-bind=none python ./run_mace.py "$CONFIG"

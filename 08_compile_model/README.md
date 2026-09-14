@@ -24,8 +24,13 @@ it finds there — so put exactly one in.
 
 ```bash
 export MACE_VENV=/path/to/envB
-sbatch submit_compile.sh
+sbatch --account=<your allocation> submit_compile.sh
 ```
+
+`name` and `max_num_epochs` are the two keys you must check — see the
+`>>> USER CONFIGURATION <<<` block at the top of `compile.yaml`. `name` must
+match `train.yaml`'s, and `max_num_epochs` must be ≤ the epoch of the checkpoint
+you are exporting.
 
 ## Output
 

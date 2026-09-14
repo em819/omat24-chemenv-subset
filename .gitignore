@@ -10,6 +10,7 @@ best_subset_*.txt
 env_ids_found_distribution.txt
 out*.log
 log_*.txt
+memory_monitor.log
 
 # Stage 05-08
 *.xyz
@@ -27,6 +28,9 @@ wandb/
 results/
 results_litraj_nebdft2k/
 bands/
+mace_features/
+report_card.parquet
+chemenv_metrics.log
 *.npz
 *.traj
 

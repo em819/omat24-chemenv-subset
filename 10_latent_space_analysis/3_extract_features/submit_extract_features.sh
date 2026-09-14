@@ -23,17 +23,56 @@
 
 set -euo pipefail
 
-# --- paths (EDIT) -----------------------------------------------------------
-MACE_ENV="${MACE_VENV:?set MACE_VENV -- see envs/envB-mace}"   # uv venv (torch+mace+e3nn)
-# Output of stage 10.2. Its filename is the CHEMENV_OUT_XYZ default; override
-# XYZ here if you set that variable.
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MACE_VENV   REQUIRED. Path to the env B virtualenv DIRECTORY -- see
+#             envs/envB-mace/. (torch + mace + e3nn)
+#
+# XYZ         INPUT FILE: the tokenised, error-annotated extxyz written by
+#             stage 10.2. The default is stage 10.2's default output name in
+#             its default location; if you set CHEMENV_OUT_XYZ there, set the
+#             matching name here.
+#
+# FEATURE_MODEL  REQUIRED. The MACE .model FILE the per-atom invariant
+#             descriptors are extracted from. The published analysis used
+#             MACE-OMAT-0 medium (mace-omat-0-medium.model, a public foundation
+#             model) -- THE SAME MODEL STAGE 10.1 EVALUATED WITH. The features
+#             and the errors must come from one model to be comparable.
+#             >>> USE THE PLAIN .model / *_run-1.model, NOT *_compiled.model. <<<
+#             This script reaches into the module tree
+#             (model.products[0].linear.irreps_out) to size the descriptor, and
+#             a TorchScript-compiled model has no such attributes -- it fails
+#             with a bare NotImplementedError.
+#
+# OUT_DIR     Where the per-rank features_shard*.npy + meta_shard*.parquet go.
+#             Stage 10.4 globs them from here.
+#
+# DTYPE       float64 --enable-cueq is the published configuration and is what
+#             the srun line below uses. WITHOUT cueq -- on CPU, or on a GPU
+#             where cuequivariance is not installed -- float64 can fail inside
+#             e3nn's compiled tensor products ("both inputs should have same
+#             dtype"). Set DTYPE=float32 and drop --enable-cueq there; that is
+#             the script's own default and it runs cleanly.
+#
+#     XYZ=... FEATURE_MODEL=... sbatch --account=<your allocation> submit_extract_features.sh
+# ============================================================================
+MACE_ENV="${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv directory -- see envs/envB-mace}"
 XYZ="${XYZ:-../2_analyze_chemenvs/all_structures_with_errors_and_v4chemenvs_mace_omat_medium.xyz}"
+MODEL="${FEATURE_MODEL:?set FEATURE_MODEL to the MACE .model to extract features from -- the SAME model stage 10.1 used, and NOT a *_compiled.model}"
+OUT_DIR="${OUT_DIR:-$SLURM_SUBMIT_DIR/mace_features}"
+DTYPE="${DTYPE:-float64}"          # float32 if you are not using cueq -- see above
+if [ -z "${CUEQ_FLAG+set}" ]; then CUEQ_FLAG="--enable-cueq"; fi   # CUEQ_FLAG="" disables cueq
+# ============================================================================
+
 if [ ! -f "$XYZ" ]; then
     echo "ERROR: $XYZ not found -- has stage 10.2 finished?" >&2
     exit 1
 fi
-MODEL="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/train-mlff/mace-models/mace-omat24-medium/mace-omat-0-medium.model"   # >>> EDIT <<<
-OUT_DIR="$SLURM_SUBMIT_DIR/mace_features"
+if [ ! -f "$MODEL" ]; then
+    echo "ERROR: FEATURE_MODEL=$MODEL not found." >&2
+    exit 1
+fi
 mkdir -p "$OUT_DIR"
 
 # --- modules / env (matches the working uv-venv launch pattern) -------------
@@ -61,8 +100,8 @@ srun --kill-on-bad-exit=0 bash -c '
         --nshards $SLURM_NTASKS \
         --batch-size 64 \
         --num-workers 8 \
-        --dtype float64 \
-        --enable-cueq   # benchmark self-check passed WITH cueq (max abs diff 1.8e-7); keep it
+        --dtype "'"$DTYPE"'" \
+        '"$CUEQ_FLAG"'   # cueq self-check passed (max abs diff 1.8e-7); keep it on GPU
 ' || true
 
 echo "All shards finished. Run Stage 2 with:"

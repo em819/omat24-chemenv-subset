@@ -331,7 +331,7 @@ def build_benchmarks(limit: int | None, eform_refs: str = "MatPES-PBE",
         # deformed-ion relax, and must NOT also appear in relax_calc_kwargs (RelaxCalc
         # would get a duplicate keyword).
         #
-        # See CHANGES_FROM_AS_RUN.md (K2, K2b) -- in particular, ElasticityCalc
+        # See 09_benchmarks/README.md (Elasticity configuration) -- in particular, ElasticityCalc
         # computes `r2_score_mean` and warns below r2_min=0.95, but the benchmark
         # layer discards it, so fit quality never reaches the CSV.
         "Elasticity": ElasticityBenchmark(

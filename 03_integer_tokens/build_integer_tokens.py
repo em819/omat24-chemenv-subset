@@ -6,22 +6,31 @@ import time
 import os
 import pandas as pd
 
-# REPO CHANGE: the input database, the DuckDB temp directory and the resource
-# limits were hardcoded absolute paths / a 128-core, 512 GB node. Environment
-# overrides now, with the as-run values as defaults where they are portable.
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or set the environment variables) <<<
 #
-#   CHEMENV_FREQ_DB   freq_chemenv.duckdb from stage 02
-#   TOKEN_VEC_DB      output; stage 04 reads it as V10_TOKEN_VEC_DB
-#   DUCK_THREADS / DUCK_MEMORY / DUCK_TEMP_DIR
+#   CHEMENV_FREQ_DB   INPUT. The freq_chemenv.duckdb file written by stage 02.
+#                     The default assumes this script runs in the SAME directory
+#                     stage 02 ran in; otherwise give an absolute path:
+#                       export CHEMENV_FREQ_DB=/data/work/selection/freq_chemenv.duckdb
 #
-# DUCK_MEMORY is the one to lower on a smaller machine. DuckDB spills to
-# DUCK_TEMP_DIR rather than failing, so make sure that has room -- the spill can
-# reach several hundred GB on the full corpus.
+#   TOKEN_VEC_DB      OUTPUT. The material-vector database. Stage 04 reads it as
+#                     $V10_TOKEN_VEC_DB. The 1000 intermediate
+#                     material_vectors_batch*.parquet shards are written to the
+#                     CURRENT WORKING DIRECTORY, so run this where there is room.
+#
+#   DUCK_THREADS / DUCK_MEMORY   DuckDB resources. DUCK_MEMORY is the one to
+#                     lower on a smaller machine.
+#   DUCK_TEMP_DIR     Spill directory. DuckDB spills here rather than failing
+#                     when DUCK_MEMORY is tight; the spill can reach several
+#                     hundred GB on the full corpus.
+# ============================================================================
 chemenv_db   = os.environ.get('CHEMENV_FREQ_DB', 'freq_chemenv.duckdb')
 TOKEN_VEC_DB = os.environ.get('TOKEN_VEC_DB', 'material_vectors.duckdb')
 DUCK_THREADS = int(os.environ.get('DUCK_THREADS', '128'))
 DUCK_MEMORY  = os.environ.get('DUCK_MEMORY', '400GB')
 TEMP_DIR     = os.environ.get('DUCK_TEMP_DIR', './duckdb_temp')
+# ============================================================================
 
 if not os.path.isfile(chemenv_db):
     raise FileNotFoundError(

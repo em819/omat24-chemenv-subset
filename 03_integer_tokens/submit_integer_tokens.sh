@@ -23,17 +23,34 @@
 # The failure modes that matter are checked explicitly below.
 set -uo pipefail
 
-conda activate active_learning_omat24_python310
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# CHEMENV_FREQ_DB  INPUT: the freq_chemenv.duckdb written by stage 02. The
+#                  default assumes this job runs in the SAME directory stage 02
+#                  ran in; give an absolute path otherwise.
+# TOKEN_VEC_DB     OUTPUT: the material-vector database, read by stage 04 as
+#                  $V10_TOKEN_VEC_DB. 1000 material_vectors_batch*.parquet files
+#                  are also written next to it, in the CURRENT directory.
+# DUCK_THREADS / DUCK_MEMORY / DUCK_TEMP_DIR
+#                  DuckDB resources. DUCK_MEMORY is the one to lower on a
+#                  smaller machine; DUCK_TEMP_DIR can reach several hundred GB.
+# CHEMENV_CONDA_ENV  Name of the conda environment holding env A.
+#
+#     sbatch --account=<your allocation> submit_integer_tokens.sh
+# ============================================================================
+CHEMENV_CONDA_ENV="${CHEMENV_CONDA_ENV:-active_learning_omat24_python310}"
+export CHEMENV_FREQ_DB="${CHEMENV_FREQ_DB:-freq_chemenv.duckdb}"   # stage 02 output
+export TOKEN_VEC_DB="${TOKEN_VEC_DB:-material_vectors.duckdb}"     # stage 04 input
+export DUCK_THREADS="${DUCK_THREADS:-${SLURM_CPUS_PER_TASK:-128}}"
+export DUCK_MEMORY="${DUCK_MEMORY:-400GB}"
+export DUCK_TEMP_DIR="${DUCK_TEMP_DIR:-./duckdb_temp}"
+# ============================================================================
+
+conda activate "$CHEMENV_CONDA_ENV"
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
-
-export CHEMENV_FREQ_DB="${CHEMENV_FREQ_DB:-freq_chemenv.duckdb}"   # stage 02 output
-export TOKEN_VEC_DB="${TOKEN_VEC_DB:-material_vectors.duckdb}"     # stage 04 input
-
-export DUCK_THREADS="${DUCK_THREADS:-${SLURM_CPUS_PER_TASK:-128}}"
-export DUCK_MEMORY="${DUCK_MEMORY:-400GB}"
-export DUCK_TEMP_DIR="${DUCK_TEMP_DIR:-./duckdb_temp}"
 
 python -u ./build_integer_tokens.py > out.log 2>&1

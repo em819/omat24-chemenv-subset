@@ -1,6 +1,39 @@
-train_file : '/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/4th_generation_tokens_train-mlff/prepare_train_val_and_test_set/train_sets/v14_T100_alpha1_support_material/subset_v14_T100_alpha1_support_material_train.xyz'
-valid_file : '/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/2nd_generation_tokens_train-mlff/prepare_train_val_and_test_set/omat24_official_validation_set/no_rare_earths/all_structures.xyz'
-test_file  : '/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/2nd_generation_tokens_train-mlff/prepare_train_val_and_test_set/test_set/matpes_no_rare_earths/matpes_pbe_2025.2_no_rare_earth.xyz'
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THE THREE PATHS BELOW <<<
+#
+# train_file  The training extxyz written by stage 05 (generate_train_set.py).
+#             795,721 frames in the published run.
+#
+# valid_file  A VALIDATION set. NOT produced by stages 01-05 and not part of the
+#             11 OMat24 training sub-datasets -- YOU MUST SUPPLY IT.
+#             The published run used the official OMat24 VALIDATION split,
+#             converted to extxyz with rare earths removed (657,756 frames).
+#             Fallback: hold out part of the stage-05 training set. The model
+#             stays comparable; the loss curve no longer matches the paper's.
+#
+# test_file   A TEST set, likewise supplied by you. The published run used
+#             MatPES PBE 2025.2 with rare earths removed (323,096 frames),
+#             the same file stage 09/matpes evaluates against. Optional --
+#             delete the line to skip the test split.
+#
+# All three MUST have rare earths filtered out: the z-table in atomic_numbers
+# below is {1..56} u {72..83}, and an out-of-table element is a hard failure.
+#
+# Paths may be absolute or relative to the directory you launch the job from.
+# preprocess_parallel.py refuses to start while a path still says CHANGE_ME.
+#
+# Other keys worth checking before you run:
+#   h5_prefix        where the HDF5 shards go (stage 07 reads ../processed_data/)
+#   num_process      parallel workers; match your core count
+#   E0s              89 isolated-atom reference energies. These are OMat24's PBE
+#                    values and are correct if your training data is OMat24.
+#                    REPLACE them if it is not.
+#   r_max, batch_size, atomic_numbers  leave as-is to reproduce the paper.
+# ============================================================================
+train_file : 'CHANGE_ME/subset_train.xyz'                      # stage 05 output
+valid_file : 'CHANGE_ME/omat24_validation_no_rare_earths.xyz'  # you supply
+test_file  : 'CHANGE_ME/matpes_pbe_2025.2_no_rare_earth.xyz'   # you supply
+# ============================================================================
 work_dir   : '.'
 h5_prefix  : 'processed_data/'
 r_max      : 6.0

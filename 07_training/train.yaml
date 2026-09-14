@@ -1,11 +1,44 @@
-# ===== identifiers / I/O =====
-name             : "mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THE KEYS IN THIS BLOCK <<<
+#
+# name             Model name. Becomes the filename stem of every checkpoint and
+#                  of the exported <name>_compiled.model / <name>_run-1.model in
+#                  stage 08, so keep it identical between train.yaml and
+#                  compile.yaml.
+#
+# train_file       Directory of TRAIN HDF5 shards written by stage 06.
+# valid_file       Directory of VAL   HDF5 shards written by stage 06.
+# test_dir         Directory of TEST  HDF5 shards written by stage 06.
+# statistics_file  statistics_fixed.json written by stage 06 (convert_stats.py) --
+#                  NOT the raw statistics.json, which still carries the 89-entry
+#                  atomic_energies and makes training fail at the first forward
+#                  pass.
+#
+#                  These four are RELATIVE paths: they assume you launch the job
+#                  from a directory that sits NEXT TO your processed_data/, i.e.
+#                      work/processed_data/{train,val,test}
+#                      work/training/          <- run sbatch from here
+#                  Use absolute paths instead if your layout differs.
+#
+# results_dir /    Where checkpoints, logs and results are written. Created if
+# log_dir          absent; relative to the launch directory.
+#
+# wandb / wandb_project / wandb_name
+#                  Weights & Biases logging, at the bottom of this file.
+#                  DEFAULT IS OFF -- set wandb: True and put in your own project
+#                  name if you want it. It needs a W&B account and a login.
+#
+# Everything else in this file is the published recipe (architecture, loss,
+# optimizer, schedule). Leave it alone to reproduce the paper's model.
+# ============================================================================
+name             : "mace-subset-chemenv-v14-T100-a1-suppm-omat-medium"
 train_file       : "../processed_data/train"
 valid_file       : "../processed_data/val"
 test_dir         : "../processed_data/test"
 statistics_file  : "../processed_data/statistics_fixed.json"
 results_dir      : "./results_subset_omat"
 log_dir          : "./logs_omat"
+# ============================================================================
 
 # ===== model architecture (matches mace-omat-0 / Table XVII) =====
 model               : "MACE"
@@ -73,7 +106,9 @@ save_cpu           : True
 keep_checkpoints   : True
 enable_cueq        : True
 
-# ===== logging =====
-wandb              : True
-wandb_project      : "mace-sset-ncov_2gen_chenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10"
-wandb_name         : "subset-from-scratch-paper-recipe-delta-0.01-lr-1e-3"
+# ===== logging (USER CONFIGURATION -- see the block at the top) =====
+# Off by default: W&B needs an account and a login, and a failed login stops the
+# run. Set to True and fill in your own project/run name to enable it.
+wandb              : False
+wandb_project      : "CHANGE_ME-your-wandb-project"
+wandb_name         : "CHANGE_ME-your-run-name"

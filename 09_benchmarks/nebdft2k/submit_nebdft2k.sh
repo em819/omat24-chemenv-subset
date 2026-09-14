@@ -20,14 +20,38 @@
 
 set -euo pipefail
 
-# >>> EDIT <<< must match the MLIP Arena env; this benchmark reuses it
-VENV="${ARENA_VENV:?set ARENA_VENV -- see envs/envD-mliparena}"
-# <-- your checkpoint (the ONLY thing you normally change between runs)
-MODEL="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/4th_generation_tokens_train-mlff/mace-models/v14_T100_alpha1_support_material/be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_num_radial_basis10/compile_model/converged/mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10_run-1.model"   # <-- your checkpoint
-MODEL_NAME="mace-omat-medium-subset-v14_T100_a1_suppm_0.01"
-
-OUTDIR="$SLURM_SUBMIT_DIR/results_litraj_nebdft2k"
-CACHE_DIR="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/2nd_generation_tokens_train-mlff/benchmarks/neb_extended/reference_structures_and_values/nebdft2k"     # shared with submit_meluxina_litraj_mplitrj.sh
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# ARENA_VENV   REQUIRED. Path to the env D virtualenv DIRECTORY -- the SAME env
+#              the stability benchmark uses. See envs/envD-mliparena/.
+#
+# MODEL        REQUIRED. Path to the MACE model FILE to benchmark. Use the
+#              *_run-1.model exported by stage 08 -- NOT *_compiled.model.
+#
+# MODEL_NAME   Short label; becomes part of the output parquet filename
+#              (<MODEL_NAME>-litraj-nebdft2k.parquet). Must match between the
+#              run step and the aggregate step below.
+#
+# OUTDIR       Where per-hop JSONs, relaxed bands and the parquet are written.
+#
+# NEB_CACHE_DIR  REQUIRED. Directory holding the downloaded nebDFT2k dataset
+#              (65 MB). It must contain nebDFT2k/nebDFT2k_index.csv plus the
+#              per-hop <edge_id>_init.xyz / <edge_id>_relaxed.xyz files.
+#              Compute nodes are usually offline, so stage it FIRST from a
+#              machine with internet:
+#                  "$ARENA_VENV/bin/python" run_litraj_nebdft2k.py \
+#                      --prefetch --cache-dir /path/to/nebdft2k_cache
+#              then export NEB_CACHE_DIR=/path/to/nebdft2k_cache
+#
+#     sbatch --account=<your allocation> --partition=<gpu partition> submit_nebdft2k.sh
+# ============================================================================
+VENV="${ARENA_VENV:?set ARENA_VENV to the envD-mliparena virtualenv directory -- see envs/envD-mliparena}"
+MODEL="${MODEL:?set MODEL to the *_run-1.model exported by stage 08 (NOT _compiled.model)}"
+MODEL_NAME="${MODEL_NAME:-mace-omat-medium-subset-v14_T100_a1_suppm_0.01}"
+OUTDIR="${OUTDIR:-$SLURM_SUBMIT_DIR/results_litraj_nebdft2k}"
+CACHE_DIR="${NEB_CACHE_DIR:?set NEB_CACHE_DIR to the directory holding the prefetched nebDFT2k dataset (see --prefetch above)}"
+# ============================================================================
 
 module load env/release/2024.1            # must match your stability/NEB env exactly
 module load Python/3.12.3-GCCcore-13.3.0

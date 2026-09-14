@@ -40,7 +40,8 @@ trained MLFF ──┬── 09  benchmarks: MatCalc-Bench, MatPES, MLIP-Arena s
 Each numbered directory is one stage, contains the script(s) for that stage, the
 SLURM script that ran them, and a `README.md` with inputs, outputs and the
 record counts observed at that stage boundary. Start with
-[`PIPELINE.md`](PIPELINE.md) for the full stage-by-stage I/O contract.
+[`PIPELINE.md`](PIPELINE.md) for the full stage-by-stage I/O contract, and
+[`DATA.md`](DATA.md) for what you have to download before any of it runs.
 
 ## Before you start: this is expensive
 
@@ -97,23 +98,31 @@ local installs to chase.
 
 ## Running it somewhere other than MeluXina
 
-**Read [`RUNNING_ELSEWHERE.md`](RUNNING_ELSEWHERE.md) first.** It covers the case
-where all you have is the 11 OMat24 sub-datasets as extxyz plus the four
-environments: what works, what you must supply, the directory layout stages
-01–04 assume, and the full environment-variable reference.
+**Read [`DATA.md`](DATA.md) first** — what data you need, where each item comes
+from, and which variable points at it. Then
+[`RUNNING_ELSEWHERE.md`](RUNNING_ELSEWHERE.md) for the directory layout stages
+01–04 assume and the full variable reference.
+
+Every script carries a `>>> USER CONFIGURATION <<<` block at the top listing
+every path and setting you have to supply, what each one should point at, and
+what the stage writes. **No absolute path from the original cluster remains
+anywhere**, and an input that cannot be guessed has no default: the job stops
+immediately, naming the variable, instead of silently reading the wrong thing.
 
 The short version:
 
-1. `#SBATCH --account=CHANGE_ME` → your allocation, in every submit script.
-2. Environments: conda stages activate `active_learning_omat24_python310` by
-   name; venv stages read a path:
+1. `#SBATCH --account=CHANGE_ME` → your allocation, in every submit script
+   (a SLURM directive cannot read a shell variable). Or
+   `sbatch --account=… --partition=…` at submit time.
+2. Environments: conda stages take a name, venv stages a path:
    ```bash
+   export CHEMENV_CONDA_ENV=chemenv        # env A; default: active_learning_omat24_python310
    export MACE_VENV=/path/to/envB
    export MATCALC_VENV=/path/to/envC
    export ARENA_VENV=/path/to/envD
    ```
 3. Input data — stage 01 reads OMat24 ASE databases or extxyz, auto-detected
-   per sub-dataset, so usually just:
+   per sub-dataset:
    ```bash
    export OMAT_DATA_DIR=/path/to/omat24
    ```
@@ -125,13 +134,13 @@ The short version:
    Missing magmoms are the dangerous case: ASE returns zeros silently, so the
    run would succeed and produce a plausible, wrong token set.
 
-Every path in stages 01–04 is an environment variable; nothing there needs the
-source edited. Stages 05–08 are driven by argparse and YAML. SLURM is not
-required — the submit scripts are wrappers around plain `mpirun` / `python`.
+SLURM is not required — the submit scripts are wrappers around plain
+`mpirun` / `python`.
 
-Two things cannot be reached from the 11 training sub-datasets alone: stage 06's
-validation and test sets, and stage 09's four benchmark reference datasets. See
-`RUNNING_ELSEWHERE.md`.
+Three things cannot be reached from the 11 training sub-datasets alone: stage
+06's validation and test sets, stage 09's four benchmark reference datasets, and
+the six comparison models the full MatPES table aggregates. See
+[`DATA.md`](DATA.md).
 
 ## Data availability
 

@@ -23,9 +23,46 @@
 # We keep env/release/2024.1 because that is the runtime the mace-work venv was
 # built against (matches your working eval/train jobs).
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MACE_VENV     REQUIRED. Path to the env B virtualenv DIRECTORY (the one whose
+#               bin/activate you source) -- see envs/envB-mace/.
+#               e.g. export MACE_VENV=/opt/envs/envB-mace
+#
+# CONFIG        The preprocessing config. ITS THREE DATASET PATHS ARE
+#               PLACEHOLDERS: edit train_file / valid_file / test_file at the top
+#               of preprocess.yaml before submitting, or the job stops
+#               immediately with a message naming the key. See DATA.md.
+#
+# SHARD_DIR     Scratch directory for the temporary xyz shards -- about one
+#               extra copy of each input set. Must be writable by you under THIS
+#               job's account. The default is a subdirectory of the working
+#               directory, which is where processed_data/ goes too, so it is
+#               guaranteed writable. Point it at fast local scratch if you have
+#               some.
+#
+# READ_PROCS / STATS_PROCS / TRAIN_SHARDS
+#               Parallelism, sized for a 128-core node. Keep
+#               TRAIN_SHARDS == STATS_PROCS. If preprocessing ENOMEMs at fork
+#               under strict overcommit, halve READ_PROCS and STATS_PROCS to 64.
+#
+#     sbatch --account=<your allocation> submit_preprocess.sh
+#
+# OUTPUT: <h5_prefix>/{train,val,test}/ HDF5 shards + statistics_fixed.json,
+#         which stage 07 reads as ../processed_data/.
+# ============================================================================
+MACE_VENV="${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv directory -- see envs/envB-mace}"
+CONFIG="${CONFIG:-./preprocess.yaml}"
+SHARD_DIR="${SHARD_DIR:-./preprocess_shards_${SLURM_JOB_ID}}"
+READ_PROCS="${READ_PROCS:-128}"     # concurrent xyz->HDF5 parse workers
+STATS_PROCS="${STATS_PROCS:-128}"   # concurrent statistics workers (the long pole)
+TRAIN_SHARDS="${TRAIN_SHARDS:-128}" # train HDF5 files; keep == STATS_PROCS
+# ============================================================================
+
 module load env/release/2024.1
 conda deactivate 2>/dev/null || true
-source ${MACE_VENV:?set MACE_VENV -- see envs/envB-mace}/bin/activate
+source "$MACE_VENV/bin/activate"
 
 # One thread per process: each of the 128 workers stays single-threaded, so 128
 # processes x 1 thread = full node with no oversubscription.
@@ -33,21 +70,8 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-# ---- parallelism (a 128-core MeluXina cpu node) -----------------------------
-READ_PROCS=128     # concurrent xyz->HDF5 parse workers (cheap; safe with CUDA off)
-STATS_PROCS=128    # concurrent statistics workers (the long pole; 1 thread each)
-TRAIN_SHARDS=128   # # train HDF5 files == parse/stats tasks; keep == STATS_PROCS
-# Temp xyz shards (~one extra copy of each input set). MUST be writable by your
-# user under THIS job's account. Do NOT rely on $SCRATCH: under --account=p200715
-# it points into p200715 space you can't write. Default below = a subdir of the
-# current working dir (same place processed_data/ goes -> guaranteed writable).
-# Point it at your own scratch if you prefer, e.g.
-#   SHARD_DIR="/project/scratch/p200243/evgeny/preprocess_shards_${SLURM_JOB_ID}"
-SHARD_DIR="./preprocess_shards_${SLURM_JOB_ID}"
-# -----------------------------------------------------------------------------
-
 time srun python -u ./preprocess_parallel.py \
-    --config       ./preprocess.yaml \
+    --config       "$CONFIG" \
     --read-procs   "$READ_PROCS" \
     --stats-procs  "$STATS_PROCS" \
     --train-shards "$TRAIN_SHARDS" \
@@ -57,9 +81,9 @@ echo "Done. Outputs under the h5_prefix from preprocess.yaml (train/ val/ test/ 
 echo "If it ENOMEMs at fork (strict overcommit), halve READ_PROCS/STATS_PROCS to 64."
 
 # ---- statistics.json -> statistics_fixed.json --------------------------------
-H5_PREFIX=$(python - <<'EOF'
-import yaml
-print(yaml.safe_load(open("preprocess.yaml")).get("h5_prefix", "") or ".")
+H5_PREFIX=$(CONFIG="$CONFIG" python - <<'EOF'
+import os, yaml
+print(yaml.safe_load(open(os.environ["CONFIG"])).get("h5_prefix", "") or ".")
 EOF
 )
 echo "Converting statistics.json in ${H5_PREFIX}"

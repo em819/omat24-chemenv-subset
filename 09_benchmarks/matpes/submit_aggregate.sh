@@ -29,24 +29,73 @@
 # arithmetic. Verified 0.000 in the shipped paper_tables/.
 # ============================================================================
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MACE_VENV     REQUIRED. Path to the env B virtualenv DIRECTORY -- see
+#               envs/envB-mace/.
+#
+# MATPES_RUNS   REQUIRED. The parent DIRECTORY holding the `*_paper`
+#               directories that submit_eval_single.sh produced -- one per
+#               model. Each RUN_DIRS entry below is resolved inside it.
+#
+# RUN_DIRS      The `*_paper` directories to aggregate, as a bash ARRAY, given
+#               relative to $MATPES_RUNS (absolute paths also work).
+# LABELS        One label per RUN_DIRS entry, SAME ORDER, same count.
+#               >>> Any label starting with rdm / seed / random is treated as a
+#               random-seed REPLICA defining the noise floor. <<<
+# CEILING_DIR   The `*_paper` directory of the CEILING model (the paper used
+#               MACE-OMAT-0). Pointing it at a directory that is also in
+#               RUN_DIRS is deliberate: that model's own excess_median then
+#               comes out as exactly 0.000 in every domain, which is a
+#               self-check on the ceiling arithmetic.
+# OUT_DIR       Where the aggregated tables are written.
+#
+# THE DEFAULTS BELOW ARE THE PAPER'S SEVEN MODELS and are a TEMPLATE, not
+# something this repository can reproduce on its own: only the v14 entry comes
+# out of this pipeline. The other six -- MACE-OMAT-0, a DIRECT-selected subset
+# model, and four random-seed replicas -- are outside its scope, so you must
+# either supply them yourself or cut RUN_DIRS/LABELS down to the models you
+# actually have. With no rdm* entry there is no noise floor.
+#
+#     MATPES_RUNS=/path/to/runs sbatch --account=<your allocation> submit_aggregate.sh
+# ============================================================================
+MACE_VENV="${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv directory -- see envs/envB-mace}"
+P="${MATPES_RUNS:?set MATPES_RUNS to the directory containing the per-model *_paper directories}"
+RUN_DIRS=(v14_paper omat0_paper direct_paper rdm1_paper rdm2_paper rdm3_paper rdm4_paper)
+LABELS=(v14 OMAT0 DIRECT rdm1 rdm2 rdm3 rdm4)
+CEILING_DIR="omat0_paper"
+OUT_DIR="matpes_paper_tables"
+# ============================================================================
+
+if [ "${#RUN_DIRS[@]}" -ne "${#LABELS[@]}" ]; then
+    echo "ERROR: RUN_DIRS has ${#RUN_DIRS[@]} entries but LABELS has ${#LABELS[@]}." >&2
+    echo "       They are positional -- give exactly one label per directory." >&2
+    exit 1
+fi
+
+# Resolve each entry against $P unless it is already absolute.
+resolve() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$P" "$1" ;; esac; }
+
+AGG_DIRS=()
+for d in "${RUN_DIRS[@]}"; do
+    full="$(resolve "$d")"
+    if [ ! -d "$full" ]; then
+        echo "ERROR: $full does not exist. Each RUN_DIRS entry must be a" >&2
+        echo "       *_paper directory written by submit_eval_single.sh." >&2
+        exit 1
+    fi
+    AGG_DIRS+=("$full")
+done
+
 module load env/release/2024.1
 module load CUDA/12.6.0
 
 conda deactivate 2>/dev/null || true
-source "${MACE_VENV:?set MACE_VENV to the envB-mace virtualenv}/bin/activate"
-
-# Directory holding the *_paper output directories of the single-model runs.
-P="${MATPES_RUNS:?directory containing the per-model *_paper directories}"
+source "$MACE_VENV/bin/activate"
 
 time srun ./eval_with_report_efs.py \
-    --aggregate \
-        "$P/v14_paper" \
-        "$P/omat0_paper" \
-        "$P/direct_paper" \
-        "$P/rdm1_paper" \
-        "$P/rdm2_paper" \
-        "$P/rdm3_paper" \
-        "$P/rdm4_paper" \
-    --labels v14 OMAT0 DIRECT rdm1 rdm2 rdm3 rdm4 \
-    --ceiling "$P/omat0_paper" \
-    --aggregate_out matpes_paper_tables
+    --aggregate "${AGG_DIRS[@]}" \
+    --labels "${LABELS[@]}" \
+    --ceiling "$(resolve "$CEILING_DIR")" \
+    --aggregate_out "$OUT_DIR"

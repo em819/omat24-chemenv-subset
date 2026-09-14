@@ -16,9 +16,12 @@ trains from, and computes the dataset statistics.
 
 ## Configure
 
-In `preprocess.yaml`: `train_file`, `valid_file`, `test_file`, `h5_prefix`
-(default `processed_data/`), `r_max: 6.0`, `batch_size: 32`, `num_process: 128`,
-the 68-entry `atomic_numbers` z-table and the 89-entry `E0s`.
+In `preprocess.yaml`, in the `>>> USER CONFIGURATION <<<` block at the top:
+`train_file`, `valid_file`, `test_file`. All three ship as `CHANGE_ME`
+placeholders and `preprocess_parallel.py` refuses to start until you edit them,
+naming the key it is still seeing. Below the block: `h5_prefix` (default
+`processed_data/`), `r_max: 6.0`, `batch_size: 32`, `num_process: 128`, the
+68-entry `atomic_numbers` z-table and the 89-entry `E0s`.
 
 > **You must supply a validation and a test set.** Neither comes out of stages
 > 01–05, and neither is among the 11 OMat24 training sub-datasets. The published
@@ -32,14 +35,14 @@ the 68-entry `atomic_numbers` z-table and the 89-entry `E0s`.
 > The 89 `E0s` are OMat24's PBE isolated-atom energies. Correct as they stand if
 > your data is OMat24; replace them if it is not.
 
-In `submit_preprocess.sh`: `READ_PROCS`, `STATS_PROCS`, `TRAIN_SHARDS`,
-`SHARD_DIR`.
+In `submit_preprocess.sh`: `MACE_VENV` (required), `CONFIG`, `SHARD_DIR`,
+`READ_PROCS`, `STATS_PROCS`, `TRAIN_SHARDS`.
 
 ## Run
 
 ```bash
 export MACE_VENV=/path/to/envB
-sbatch submit_preprocess.sh
+sbatch --account=<your allocation> submit_preprocess.sh
 ```
 
 ## Output

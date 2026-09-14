@@ -15,15 +15,33 @@ import sys
 import ase.io
 from mace.cli.eval_configs import main as mace_eval_configs_main
 
-DEFAULT_REF = (
-    "/project/home/p200715/evgeny/Projects/OMat24_for_So3lr/construct_minimal_omat_subset/"
-    "train_mlff/mace-work/prepare_train_val_and_test_set/test_set/no_rare_earths/"
-    "all_structures.xyz"
-)
-DEFAULT_MODEL = (
-    "/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/"
-    "train-mlff/mace-models/mace-omat24-medium/mace-omat-0-medium.model"
-)
+# ============================================================================
+# >>> USER CONFIGURATION -- pass these on the command line <<<
+#
+#   --configs  REQUIRED. The reference extxyz FILE carrying DFT energies and
+#              forces, which the model is evaluated on. The published run used
+#              the SAME file stage 06 uses as its valid_file: the official
+#              OMat24 validation split converted to extxyz with rare earths
+#              removed (657,756 structures / 12,019,558 atoms). Everything
+#              downstream in stage 10 is sized by this file. See DATA.md.
+#
+#   --model    REQUIRED. The MACE .model FILE whose predictions are analysed.
+#              The published latent-space analysis used MACE-OMAT-0 medium
+#              (mace-omat-0-medium.model, a public foundation model) -- the same
+#              file stage 10.3 extracts features with. Pass your own
+#              *_run-1.model from stage 08 to analyse the subset model instead;
+#              use the SAME model here and in stage 10.3.
+#
+#   --outdir   Where predictions.xyz and the merged
+#              all_structures_ref_and_predicted.xyz are written. Stage 10.2
+#              reads the merged file as ../all_structures_ref_and_predicted.xyz,
+#              so point --outdir at the PARENT of the directory you will run
+#              stage 10.2 from.
+#
+# Neither --configs nor --model has a default: both used to be absolute paths
+# on the author's cluster, which silently pointed everyone else at files they
+# do not have.
+# ============================================================================
 
 
 def run_eval(configs, model, output, device, dtype):
@@ -64,9 +82,14 @@ def merge(ref_xyz, pred_xyz, out_xyz):
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--configs", default=DEFAULT_REF,
-                   help="reference extxyz with DFT energies/forces")
-    p.add_argument("--model", default=DEFAULT_MODEL, help="MACE .model file")
+    p.add_argument("--configs", required=True,
+                   help="REQUIRED: reference extxyz with DFT energies/forces "
+                        "(the published run used the OMat24 validation split, "
+                        "rare earths removed -- see DATA.md)")
+    p.add_argument("--model", required=True,
+                   help="REQUIRED: MACE .model file to evaluate (the published "
+                        "run used mace-omat-0-medium.model; use the same model "
+                        "here and in stage 10.3)")
     p.add_argument("--outdir", default=".",
                    help="where the prediction and merged files are written")
     p.add_argument("--pred-name", default="predictions.xyz",

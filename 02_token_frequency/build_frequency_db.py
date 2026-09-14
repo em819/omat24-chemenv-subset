@@ -21,12 +21,41 @@ import pandas as pd
 
 pd.set_option('display.max_rows', None)
 
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK (or set the environment variables) <<<
+#
+#   CHEMENV_PARQUET_GLOB  A GLOB PATTERN matching the parquet files stage 01b
+#                     wrote -- one per sub-dataset, named
+#                     total_chemenv_<subset>.parquet. The default assumes this
+#                     job runs in a SIBLING directory of the one stage 01b ran
+#                     in, i.e. work/selection/ next to work/parquet_file_collection/.
+#                     Absolute patterns are fine:
+#                       export CHEMENV_PARQUET_GLOB='/data/work/parquet_file_collection/total_chemenv*.parquet'
+#
+#   CHEMENV_FREQ_DB   OUTPUT database, created here. Stage 03 AND stage 04 both
+#                     read it, so keep it; it is not a throwaway intermediate.
+#
+#   DUCK_THREADS / DUCK_MEMORY   DuckDB resources. Lower DUCK_MEMORY on a
+#                     smaller machine -- DuckDB then spills to DUCK_TEMP_DIR
+#                     rather than failing.
+#   DUCK_TEMP_DIR     Spill directory. Needs several hundred GB on the full
+#                     corpus. Point it at fast local scratch if you have it.
+# ============================================================================
 PARQUET_GLOB = os.environ.get('CHEMENV_PARQUET_GLOB',
                               '../parquet_file_collection/total_chemenv*.parquet')
 FREQ_DB      = os.environ.get('CHEMENV_FREQ_DB', 'freq_chemenv.duckdb')
 DUCK_THREADS = int(os.environ.get('DUCK_THREADS', '128'))
 DUCK_MEMORY  = os.environ.get('DUCK_MEMORY', '400GB')
 TEMP_DIR     = os.environ.get('DUCK_TEMP_DIR', './duckdb_temp')
+# ============================================================================
+
+import glob as _glob
+if not _glob.glob(PARQUET_GLOB):
+    raise FileNotFoundError(
+        f"CHEMENV_PARQUET_GLOB={PARQUET_GLOB!r} matches no files. Point it at "
+        f"the total_chemenv_<subset>.parquet files written by stage 01b "
+        f"(concat_to_parquet.py), e.g. "
+        f"export CHEMENV_PARQUET_GLOB='/path/to/parquet_file_collection/total_chemenv*.parquet'")
 
 os.makedirs(TEMP_DIR, exist_ok=True)
 conn = duckdb.connect(FREQ_DB,

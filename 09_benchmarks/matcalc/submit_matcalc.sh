@@ -14,10 +14,38 @@
 
 set -euo pipefail
 
-VENV="${MATCALC_VENV:?set MATCALC_VENV -- see envs/envC-matcalc}"
-MODEL="/project/scratch/p200243/evgeny/Projects/OMat24_for_So3lr/active_learning_of_OMat24/4th_generation_tokens_train-mlff/mace-models/v14_T100_alpha1_support_material/be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_num_radial_basis10/compile_model/converged/mace-subset-2nd_gen_chemenv_v14_T100_a1_suppm-omat-medium-be1024_universal_loss_dft_e0s_use_stress_delta_0.01_lr_0.001_rb10_compiled.model"   # <-- your checkpoint
-MODEL_NAME="mace-omat-medium-subset-v14_T100_a1_suppm_0.01"
-OUTDIR="$SLURM_SUBMIT_DIR/results"
+# ============================================================================
+# >>> USER CONFIGURATION -- EDIT THIS BLOCK <<<
+#
+# MATCALC_VENV  REQUIRED. Path to the env C virtualenv DIRECTORY -- see
+#               envs/envC-matcalc/. e.g. export MATCALC_VENV=/opt/envs/envC-matcalc
+#
+# MODEL         REQUIRED. Path to the MACE model FILE to benchmark. Use the
+#               *_compiled.model produced by stage 08 -- MatCalc takes the
+#               TorchScript export, unlike the stability/NEB benchmarks which
+#               need *_run-1.model.
+#
+# MODEL_NAME    A short label. It becomes part of every output CSV filename, so
+#               use something you will recognise and keep it stable between the
+#               run and merge_results.py.
+#
+# OUTDIR        Where the per-rank CSVs are written. merge_results.py reads the
+#               same directory.
+#
+# MATCALC_CACHE The reference-data cache. matcalc HARDCODES ~/.cache/matcalc and
+#               ignores HF_HOME, so this is only the directory the presence check
+#               below looks at; change it only if you have redirected $HOME.
+#               The four benchmark files must be staged there from a machine with
+#               internet -- see the comment further down.
+#
+#     sbatch --account=<your allocation> --partition=<gpu partition> submit_matcalc.sh
+# ============================================================================
+VENV="${MATCALC_VENV:?set MATCALC_VENV to the envC-matcalc virtualenv directory -- see envs/envC-matcalc}"
+MODEL="${MODEL:?set MODEL to the *_compiled.model exported by stage 08}"
+MODEL_NAME="${MODEL_NAME:-mace-omat-medium-subset-v14_T100_a1_suppm_0.01}"
+OUTDIR="${OUTDIR:-$SLURM_SUBMIT_DIR/results}"
+MATCALC_CACHE="${MATCALC_CACHE:-$HOME/.cache/matcalc}"
+# ============================================================================
 
 module load env/release/2024.1
 module load Python/3.12.3-GCCcore-13.3.0  # same Python the venv was built with
@@ -43,8 +71,8 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # HF dataset materialyze/matcalc-bench into ~/.cache/matcalc when the benchmark
 # object is constructed.)
 #
-if [ ! -d "$HOME/.cache/matcalc" ]; then
-    echo "WARNING: ~/.cache/matcalc not found. matcalc will try to download the" >&2
+if [ ! -d "$MATCALC_CACHE" ]; then
+    echo "WARNING: $MATCALC_CACHE not found. matcalc will try to download the" >&2
     echo "         benchmark data now; on an offline compute node that will fail." >&2
     echo "         Stage it from a login node first (see the comment above)." >&2
     if [ "${BENCH_OFFLINE:-0}" = "1" ]; then exit 1; fi

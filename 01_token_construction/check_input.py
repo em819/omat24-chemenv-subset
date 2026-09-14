@@ -112,8 +112,21 @@ def check_one(subset, data_dir, fmt, template, n_probe):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    # ========================================================================
+    # >>> USER CONFIGURATION -- pass these on the command line <<<
+    #
+    #   --data-dir   REQUIRED. The directory that HOLDS the sub-datasets named
+    #                in subsets.txt (one <subset>/ directory or <subset>.xyz
+    #                file per sub-dataset inside it) -- the same value you will
+    #                give stage 01 as $OMAT_DATA_DIR.
+    #   --format / --file-template  mirror $OMAT_INPUT_FORMAT / $OMAT_FILE_TEMPLATE.
+    #   --subsets-file  the list of sub-datasets to check; defaults to the
+    #                subsets.txt next to this script.
+    # ========================================================================
     ap.add_argument("--data-dir", required=True,
-                    help="directory holding the sub-datasets")
+                    help="directory HOLDING the sub-datasets named in "
+                         "subsets.txt (same value as $OMAT_DATA_DIR for "
+                         "stage 01), e.g. /data/omat24/train_extracted")
     ap.add_argument("--format", choices=["auto", "extxyz", "ase-db"], default="auto",
                     help="'auto' (default) uses whichever form is present per "
                          "sub-dataset, exactly as tokenize_omat24.py does")
