@@ -54,6 +54,68 @@ re-running the model:
                  own error is NOT zero -- on MatPES its median per-structure
                  force MAE is about 100 meV/A.
 
+WHAT v5 ADDS
+============
+One table, in --aggregate only, and nothing else changes: every number, line
+and file v4 produced is produced identically.
+
+  PAPER TABLE 2b BLOW-UP CENSUS: how many ATOMS have a force error whose own
+                 NORM ||dF_i|| exceeds a threshold, per model and per domain.
+
+Table 2 (STABILITY) already counts things above a force threshold, but it
+counts STRUCTURES and it tests the per-structure, component-averaged MAE. That
+average is taken over the structure's own atoms, so one divergent atom in a
+216-atom cell is diluted 216-fold while the same atom in a 4-atom cell is not:
+the count answers "how many structures came out bad", which is not the same
+question as "how many atoms blew up", and the two cannot be converted into
+each other after the fact. Quoting a count of atoms from a table of structures
+(or from the atom-weighted CDF, which weights each structure by its size but
+still thresholds the structure average) is the mistake this table exists to
+remove.
+
+2b counts atoms directly. An atom is counted when ||dF_i|| > t, with no
+per-structure mean taken first, so the result is a straight census of the
+divergent atoms and can be quoted as one. It needs per_atom_forces.npz for
+every model; without it the table is skipped and, as with 6b/6c, every other
+table is unchanged.
+
+The domains are the usual ALL / BULK / NON-BULK / OVERCOMPRESSED, plus
+BULK+NON-BULK -- the union of the two physical domains with the overcompressed
+screen excluded, which is the population most figures are drawn on. It is
+built from the masks rather than as ALL minus OVERCOMPRESSED so that it stays
+correct regardless of whether the domains happen to partition the set.
+
+  PAPER TABLE 1c PER-ATOM FORCE MAE: the pooled per-atom force error of each
+                 model on each domain, in BOTH conventions side by side.
+
+Table 1 reports estimators of the per-STRUCTURE error distribution, and its
+'pooled_mean_MAE' row is the only pooled per-atom number in it -- available
+for the component convention alone, because f_mae_norm is not one of the
+tabulated _QUANTITIES. So the report has never carried the norm-convention
+per-atom MAE at all, even though the column exists in per_structure.npz.
+
+1c adds both, per domain:
+
+    norm  = mean over the domain's ATOMS of ||dF_i||
+    comp  = mean over the domain's 3N COMPONENTS of |dF_i,k|  -- MACE's MAE_F,
+            the number a MACE training log prints
+
+Neither is an approximation. For a structure of N_s atoms, f_mae_comp_s is the
+mean of |dF_i,k| over its own 3N_s components and f_mae_norm_s the mean of
+||dF_i|| over its own N_s atoms, so weighting each by N_s and dividing by the
+domain's total gives exactly the mean over every atom (or component) in the
+domain. The table therefore needs only per_structure.npz and is produced even
+when per_atom_forces.npz is absent. When the per-atom files ARE present the
+same two numbers are recomputed from the raw atoms and the two routes are
+compared, so a disagreement is reported rather than assumed away.
+
+The two conventions are not interchangeable and no constant converts them:
+||dF_i|| <= |dF_i,1| + |dF_i,2| + |dF_i,3| bounds their ratio to [1, 3], and
+the value inside that range depends on how anisotropic the error vectors are
+(it is exactly 2 only for isotropic Gaussian errors). Quoting one against a
+number computed with the other is a mistake the report should make it hard to
+commit, which is why they are printed as two rows of one table.
+
 --aggregate reads the per-structure tables of several models and prints the
 combined tables, using the random-seed replicas as a measured NOISE FLOOR:
 every metric gets the seed mean +- sd, and every model gets its offset from
@@ -670,6 +732,69 @@ REF_FORCE_BINS = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 10.0)
 # Bin edges for the ceiling-conditional profile, eV/A, applied to the
 # REFERENCE MODEL's own per-structure force MAE.
 CEILING_BINS = (0.0, 0.025, 0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2)
+
+# v4 ADDITION. Bin edges for the two PER-ATOM-BINNED ceiling profiles.
+#
+# The v2.1 per-atom tables still cut their bins on the ceiling's PER-STRUCTURE
+# f_mae_comp and only the statistic inside a bin is per-atom. These two put the
+# binning on the same footing as the statistic: a bin holds the ATOMS whose
+# ceiling error falls between the edges, not the atoms of the structures whose
+# ceiling MEAN does.
+#
+# PERATOM_CEILING_BINS is deliberately the same ladder as CEILING_BINS, in the
+# same units (eV/A), so the absolute per-atom rows can be read against the
+# per-structure rows above them. Per-atom norms sit higher than a structure's
+# component-average MAE, so the mass moves up the ladder; that is the effect
+# being shown, not a reason to re-cut the bins.
+PERATOM_CEILING_BINS = CEILING_BINS
+
+# The relative profile is dimensionless, so it needs its own ladder. It is
+# CEILING_BINS itself, read as a FRACTION instead of in eV/A, continued two
+# rungs further. The rule is deliberately one a reader can check against the
+# table above without reference to any result: same start, same doubling, more
+# rungs.
+#
+# The extra rungs are not cosmetic. Relative errors have a much heavier upper
+# tail than absolute ones, because dividing by a small reference force turns a
+# modest error into a large ratio. Stopping where the absolute ladder stops
+# piles that tail into the open top bin and HIDES it; carrying the ladder two
+# rungs further lets it fall off the way the absolute table's does, and a
+# sparsely populated top bin is informative -- it is the statement that
+# catastrophic relative errors are rare.
+#
+# rho = 1 -- "the error is at least as large as the force itself" -- is a real
+# property worth knowing, and it is recoverable here: it sits inside the
+# 0.8-1.6 bin. Anchoring the edges on it instead would make them look chosen
+# rather than inherited, which is the one thing a binning choice must not look
+# like.
+PERATOM_REL_BINS = (0.0, 0.025, 0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8)
+
+# Atoms with ||F_ref,i|| <= this are dropped from the RELATIVE table only; the
+# absolute tables are untouched by it.
+#
+# 0.0 keeps every atom whose reference force is not exactly zero. It still
+# drops a small share of them, whose reference force vanishes IDENTICALLY by
+# symmetry (high-symmetry Wyckoff sites): rho is not a large number there, it
+# is undefined, and no cutoff can rescue them. The remaining small forces are
+# harmless -- the smallest non-zero ||F_ref|| still gives a finite rho in
+# float64, and every statistic reported here is a median. A cutoff large
+# enough to discard a sizeable fraction of the atoms does change rankings, so
+# it would be a different measurement, not a cleaner one. Keep it at 0 unless
+# you have a reason, and state the value if you move it.
+REL_MIN_REF_FORCE = 0.0
+
+# A per-atom bin below this many ATOMS is omitted from the two tables above,
+# mirroring the 20-STRUCTURE floor the per-structure profile uses.
+PERATOM_MIN_BIN_ATOMS = 20
+
+# v5 ADDITION. Per-ATOM force-error thresholds for the BLOW-UP CENSUS, eV/A,
+# tested against the error NORM ||dF_i||. The ladder is deliberately the same
+# as STABILITY_FORCE_THRESHOLDS so that the two tables can be read side by
+# side -- that one counts structures whose component-averaged MAE exceeds the
+# threshold, this one counts atoms whose own norm does -- but the two are
+# separate constants because they threshold different quantities and there is
+# no reason a change to one should silently move the other.
+PERATOM_BLOWUP_THRESHOLDS = (0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0)
 
 # Labels treated as the random-seed replicas when aggregating, for the
 # mean +- sd noise floor. Matched as a prefix, case-insensitively.
@@ -2854,6 +2979,242 @@ def _ceiling_bin_masks(cel, mask, edges=CEILING_BINS):
     return out
 
 
+# ---------------------------------------------------------------------------
+# v4 ADDITION: ceiling profiles binned on the ceiling's own PER-ATOM error,
+# absolute and relative
+# ---------------------------------------------------------------------------
+# Why this needs machinery the v2.1 block did not.
+#
+# Every per-atom statistic in v2.1 is taken over ONE model's own atoms: the bin
+# is a set of STRUCTURES, each model selects its own atoms from it, and the
+# median is computed independently. No atom of model A ever has to be matched
+# to the corresponding atom of model B, so the STRUCTURE permutation returned
+# by align_to() is all that is needed.
+#
+# Here the bin membership is fixed by the CEILING's per-atom error and then
+# applied to another model's atoms. That is an atom-level pairing, and getting
+# it wrong would not raise: atoms would be attributed to the wrong bins and
+# every row would look entirely plausible. _peratom_base_perm builds the
+# permutation from struct_offset, and the caller then checks the atomic numbers
+# and the reference force magnitudes agree after it has been applied -- two
+# quantities that are stored per atom precisely so that this can be checked
+# rather than assumed.
+def _peratom_base_perm(pa, own_order, base_counts, where='per_atom_forces.npz'):
+    """Row permutation putting a model's per-atom arrays into the COMMON order.
+
+    own_order[j] is the position of common row j in THIS model's own table,
+    i.e. exactly what align_to() returns. Atoms of a structure are stored
+    contiguously, so the permutation follows from struct_offset alone -- but
+    only if every structure contributes the same number of atoms in both
+    files, which is checked here rather than assumed.
+    """
+    off = np.asarray(pa['struct_offset'], dtype=np.int64)
+    counts = np.diff(off)
+    own_order = np.asarray(own_order, dtype=np.int64)
+    if len(own_order) != len(counts):
+        raise ValueError(
+            '%s describes %d structures but %d were matched; the per-atom and '
+            'per-structure tables are not from the same run.'
+            % (where, len(counts), len(own_order)))
+    base_counts = np.asarray(base_counts, dtype=np.int64)
+    mine = counts[own_order]
+    if not np.array_equal(mine, base_counts):
+        bad = int(np.flatnonzero(mine != base_counts)[0])
+        raise ValueError(
+            '%s contributes %d atoms for the structure at common row %d, but '
+            'the reference model contributes %d there. A structure that '
+            'carried no forces in one run and all of them in another cannot '
+            'be paired atom by atom.' % (where, int(mine[bad]), bad,
+                                         int(base_counts[bad])))
+    total = int(base_counts.sum())
+    out_start = np.concatenate(([0], np.cumsum(base_counts)[:-1]))
+    return (np.arange(total, dtype=np.int64)
+            - np.repeat(out_start, base_counts)
+            + np.repeat(off[own_order], base_counts))
+
+
+def _atombin_masks(cv, mask, edges, label_scale=1.0):
+    """[(label, atom mask)] cut on the CEILING's own per-atom value `cv`."""
+    out = []
+    e = list(edges)
+    for lo, hi in zip(e[:-1], e[1:]):
+        out.append(('%g-%g' % (label_scale * lo, label_scale * hi),
+                    mask & (cv >= lo) & (cv < hi)))
+    out.append(('>=%g' % (label_scale * e[-1]), mask & (cv >= e[-1])))
+    return out
+
+
+def _atombin_profiles(labs, jobs, ceiling_job, base_counts, struct_masks):
+    """Both v4 per-atom-binned profiles, in one pass over the models.
+
+    jobs         [(label, per-atom path, own_order, own per-structure table)]
+    ceiling_job  the same 4-tuple for the ceiling
+    base_counts  atoms per structure, in the COMMON row order
+    struct_masks {domain: structure mask, COMMON row order}
+
+    Returns {'norm': {domain: [row]}, 'rel': {domain: [row]}, 'info': {...}}.
+    One model is held in memory at a time, as in the v2.1 block; only the
+    ceiling's two arrays are kept for the whole pass, because every bin is cut
+    on them.
+    """
+    base_counts = np.asarray(base_counts, dtype=np.int64)
+    row = np.repeat(np.arange(len(base_counts), dtype=np.int64), base_counts)
+    amask = {dk: m[row] for dk, m in struct_masks.items()}
+
+    cpath, corder, ctab = ceiling_job[1], ceiling_job[2], ceiling_job[3]
+    cpa = load_per_atom_forces(cpath, rows=ctab)
+    cperm = _peratom_base_perm(cpa, corder, base_counts, cpath)
+    cerr = _worst_fill(cpa['err_norm'].astype(np.float64))[cperm]
+    cref = np.asarray(cpa['ref_norm'], dtype=np.float64)[cperm]
+    cz = np.asarray(cpa['Z'])[cperm]
+    del cpa
+
+    # The relative table's population. A reference force of exactly zero is not
+    # a small number, it is a site where rho does not exist; those atoms are
+    # dropped and counted, never quietly folded in at some large value.
+    keep = cref > REL_MIN_REF_FORCE
+    crel = np.full(len(cerr), np.nan)
+    crel[keep] = cerr[keep] / cref[keep]
+
+    specs = {'norm': {}, 'rel': {}}
+    for dk, m in amask.items():
+        specs['norm'][dk] = _atombin_masks(cerr, m, PERATOM_CEILING_BINS,
+                                           1000.0)
+        specs['rel'][dk] = _atombin_masks(crel, m & keep, PERATOM_REL_BINS,
+                                          1.0)
+
+    def _cells(vnorm, vrel):
+        got = {}
+        for tag, v in (('norm', vnorm), ('rel', vrel)):
+            got[tag] = {}
+            for dk in specs[tag]:
+                col = []
+                for _lab, s in specs[tag][dk]:
+                    n = int(s.sum())
+                    col.append(_wquantile(v[s], np.ones(n), 0.5)
+                               if n >= PERATOM_MIN_BIN_ATOMS else float('nan'))
+                got[tag][dk] = col
+        return got
+
+    ceil_cells = _cells(cerr, crel)
+
+    cells = {}
+    for L, path, order, tab in jobs:
+        pa = load_per_atom_forces(path, rows=tab)
+        perm = _peratom_base_perm(pa, order, base_counts, path)
+        if not np.array_equal(np.asarray(pa['Z'])[perm], cz):
+            raise ValueError(
+                'after matching, the per-atom file for %r does not describe '
+                'the same atoms in the same order as the ceiling (the atomic '
+                'numbers differ). The two evaluations did not read the same '
+                'reference file, so their atoms cannot be paired.' % L)
+        ref = np.asarray(pa['ref_norm'], dtype=np.float64)[perm]
+        err = _worst_fill(pa['err_norm'].astype(np.float64))[perm]
+        del pa
+        if not np.allclose(ref, cref, rtol=1e-5, atol=1e-12):
+            raise ValueError(
+                'the reference force magnitudes stored for %r differ from the '
+                'ceiling\'s after matching; the two evaluations did not read '
+                'the same reference file.' % L)
+        rel = np.full(len(err), np.nan)
+        rel[keep] = err[keep] / cref[keep]
+        cells[L] = _cells(err, rel)
+        del err, rel, ref
+
+    res = {'norm': {}, 'rel': {},
+           'info': {'min_ref_force': float(REL_MIN_REF_FORCE),
+                    'n_atoms': int(len(cerr)),
+                    'n_excluded_rel': int((~keep).sum()),
+                    'n_zero_ref': int((cref <= 0).sum()),
+                    'domains': {}}}
+    for dk in amask:
+        res['info']['domains'][dk] = {
+            'n_atoms': int(amask[dk].sum()),
+            'n_excluded_rel': int((amask[dk] & ~keep).sum())}
+    for tag in ('norm', 'rel'):
+        for dk in specs[tag]:
+            n_dom = int((amask[dk] if tag == 'norm'
+                         else (amask[dk] & keep)).sum())
+            rws = []
+            for bi, (blab, s) in enumerate(specs[tag][dk]):
+                n = int(s.sum())
+                if n < PERATOM_MIN_BIN_ATOMS:
+                    continue
+                vals = [cells[L][tag][dk][bi] for L in labs]
+                mean, sd, _ = _seed_stats(vals, labs)
+                best = labs[int(np.argmin([v if np.isfinite(v) else np.inf
+                                           for v in vals]))]
+                rws.append({'bin': blab, 'n': n,
+                            'pct': 100.0 * n / max(n_dom, 1),
+                            'ceiling_value': ceil_cells[tag][dk][bi],
+                            'values': {L: v for L, v in zip(labs, vals)},
+                            'seed_mean': mean, 'seed_sd': sd, 'best': best})
+            res[tag][dk] = rws
+    return res
+
+
+def _print_atombin(res, labs, tag, scale, vfmt, binunit, title, note):
+    """One of the two v4 per-atom-binned profiles."""
+    print('-' * 72)
+    print('  %s' % title)
+    for line in note:
+        print('  %s' % line)
+    info = res['info']
+    if tag == 'rel':
+        print('  %d of %d atoms have no defined relative error and are '
+              'excluded' % (info['n_excluded_rel'], info['n_atoms']))
+        print('  (||F_ref,i|| <= %g eV/A; %d of them are exactly zero by '
+              'symmetry).' % (info['min_ref_force'], info['n_zero_ref']))
+    for dk in _DOMAIN_ORDER:
+        if dk not in res[tag]:
+            continue
+        d = info['domains'].get(dk, {})
+        extra = ('' if tag == 'norm'
+                 else ', %d excluded' % d.get('n_excluded_rel', 0))
+        print('  %s  (%d atoms%s)' % (_DOMAIN_LABEL[dk],
+                                      d.get('n_atoms', 0), extra))
+        head = '    %-20s %11s %9s %9s' % ('ceiling bin [%s]' % binunit,
+                                           'n atoms', '% of dom', 'ceil')
+        for L in labs:
+            head += ' %10s' % L[:10]
+        head += ' %10s %10s' % ('seed mean', 'seed sd')
+        for L in labs:
+            if not _is_seed_label(L):
+                head += ' %9s' % ('sd(%s)' % L[:5])
+        head += ' %8s' % 'best'
+        print(head)
+        rws = res[tag][dk]
+        if not rws:
+            print('    (no bin with at least %d atoms)' % PERATOM_MIN_BIN_ATOMS)
+            continue
+        for r in rws:
+            line = ('    %-20s %11d %8.2f%% ' % (r['bin'], r['n'], r['pct'])
+                    + (vfmt % (r['ceiling_value'] * scale)))
+            for L in labs:
+                line += ' ' + (vfmt % (r['values'][L] * scale))
+            line += ' ' + (vfmt % (r['seed_mean'] * scale))
+            line += ' ' + (vfmt % (r['seed_sd'] * scale))
+            for L in labs:
+                if not _is_seed_label(L):
+                    line += ' %9s' % _fmt_sigma(r['values'][L], r['seed_mean'],
+                                                r['seed_sd'])
+            line += ' %8s' % r['best'][:8]
+            print(line)
+        n_shown = sum(r['n'] for r in rws)
+        n_dom = (info['domains'][dk]['n_atoms'] if tag == 'norm'
+                 else info['domains'][dk]['n_atoms']
+                 - info['domains'][dk]['n_excluded_rel'])
+        if n_dom - n_shown:
+            print('    (%d atoms in bin(s) with fewer than %d members, '
+                  'omitted above)' % (n_dom - n_shown, PERATOM_MIN_BIN_ATOMS))
+        cov = {}
+        for r in rws:
+            cov[r['best']] = cov.get(r['best'], 0) + r['n']
+        parts = ['%s %.2f%%' % (L, 100.0 * cov[L] / max(n_dom, 1))
+                 for L in labs if cov.get(L)]
+        print('    bins where each model is best cover: %s' % ', '.join(parts))
+
+
 def _print_ceiling(res):
     print('=' * 72)
     print('PAPER TABLE 6 -- RELATIVE TO THE FULL-DATA CEILING (%s)'
@@ -2976,6 +3337,383 @@ def _print_ceiling_peratom(res):
               'numbers above,')
         print('  not a per-atom paired median -- the two are not the same '
               'statistic.')
+
+
+# ---------------------------------------------------------------------------
+# v5 ADDITION: the blow-up census -- how many ATOMS exceed a force-error
+# threshold on the NORM convention
+# ---------------------------------------------------------------------------
+# Conventions, all of them ones the rest of this script already follows:
+#
+#   * the quantity is ||dF_i||, the length of the atom's own error vector, NOT
+#     MACE's component-average MAE_F and NOT any per-structure mean. An atom is
+#     one sample. (If you need the same census in the 'rms_component' units a
+#     MACE log prints, divide the threshold by sqrt(3): the two orderings are
+#     identical, see the FORCE_ERROR_CUTOFF_ON note at the top of this file.)
+#
+#   * the test is STRICT, count = #{i : ||dF_i|| > t}, exactly as
+#     _tbl_stability tests its per-structure values.
+#
+#   * a non-finite ||dF_i|| has already been mapped to +inf by _peratom_view,
+#     so it is counted above EVERY threshold rather than dropped: a divergent
+#     model may not be improved by having its worst atoms vanish. How many
+#     atoms that is, per model and per domain, is reported alongside, so the
+#     finite and the non-finite parts of a count can be separated again.
+#
+#   * the denominator is the domain's own atom count as the per-atom file
+#     reports it, NOT sum(natoms) over the domain's structures: a structure
+#     that carried no forces contributes no atoms, and the per-atom file is
+#     the only thing that knows which ones those are.
+#
+# Structure masks are built once in the common (base) row order and applied to
+# every model's atoms through view['row'], which _peratom_view has already
+# expressed in that same order. A per-model rebuild is exactly where a paired
+# comparison would drift onto different structures.
+def _blowup_domain_masks(base_masks):
+    """[(domain key, structure mask)] for the census, in print order.
+
+    The usual domains, plus their union without the overcompressed screen.
+    That union is taken from the masks rather than as 'all' minus
+    'overcompressed' so that it remains the population it claims to be even if
+    the domains stop partitioning the set.
+    """
+    out = [(dk, base_masks[dk]) for dk in _DOMAIN_ORDER if dk in base_masks]
+    if 'bulk' in base_masks and 'non_bulk' in base_masks:
+        out.append(('bulk_plus_non_bulk',
+                    base_masks['bulk'] | base_masks['non_bulk']))
+    return out
+
+
+_BLOWUP_DOMAIN_LABEL = dict(_DOMAIN_LABEL)
+_BLOWUP_DOMAIN_LABEL['bulk_plus_non_bulk'] = 'BULK + NON-BULK'
+
+
+def _peratom_blowup_counts(view, raw_err, dom_masks,
+                           thresholds=PERATOM_BLOWUP_THRESHOLDS):
+    """One model's census: {domain: {n_atoms, n_nonfinite, counts}}.
+
+    `raw_err` is the file's own err_norm, before _worst_fill mapped the
+    non-finite entries to +inf; it is used only to count them, never to
+    threshold, so the counts keep the +inf convention.
+    """
+    e = view['err_norm']
+    row = view['row']
+    nonfin = ~np.isfinite(np.asarray(raw_err, dtype=np.float64))
+    out = {}
+    for dk, m in dom_masks:
+        sel = m[row]
+        ee = e[sel]
+        out[dk] = {'n_atoms': int(ee.size),
+                   'n_nonfinite': int(nonfin[sel].sum()),
+                   'counts': [int((ee > t).sum()) for t in thresholds]}
+    return out
+
+
+def _tbl_peratom_blowup(labs, pa_jobs, dom_masks,
+                        thresholds=PERATOM_BLOWUP_THRESHOLDS):
+    """The census for every model. One per-atom file in memory at a time.
+
+    pa_jobs is [(column label, path, matched order, per-structure table)], the
+    same tuple the per-atom profile blocks build; '__ceiling__' may be one of
+    the labels and is carried through as an extra column without entering the
+    seed statistics.
+    """
+    per_model = {}
+    for L, q, it, t in pa_jobs:
+        pa = load_per_atom_forces(q, rows=t)
+        view = _peratom_view(pa, own_order=it)
+        per_model[L] = _peratom_blowup_counts(view, pa['err_norm'], dom_masks,
+                                              thresholds)
+        del view, pa
+    res = {'quantity': 'per-atom force error norm ||dF_i||', 'unit': 'eV/A',
+           'test': 'strict, > threshold',
+           'nonfinite_policy': 'mapped to +inf, counted above every threshold',
+           'thresholds': list(thresholds), 'columns': list(per_model),
+           'domains': {}}
+    for dk, _m in dom_masks:
+        na = {L: per_model[L][dk]['n_atoms'] for L in per_model}
+        ent = {'n_atoms': na,
+               'n_nonfinite': {L: per_model[L][dk]['n_nonfinite']
+                               for L in per_model},
+               'thresholds': {}}
+        for i, t in enumerate(thresholds):
+            c = {L: per_model[L][dk]['counts'][i] for L in per_model}
+            mean, sd, _ = _seed_stats([float(c[L]) for L in labs], labs)
+            ent['thresholds']['>%g' % t] = {
+                'counts': c,
+                'fractions': {L: (c[L] / na[L] if na[L] else float('nan'))
+                              for L in per_model},
+                'seed_mean': mean, 'seed_sd': sd}
+        res['domains'][dk] = ent
+    return res
+
+
+def _print_peratom_blowup(res, labs, cols, col_names):
+    """cols are the keys into the table, col_names what to print for them."""
+    print('=' * 72)
+    print('BLOW-UP CENSUS -- ATOMS whose own force error norm ||dF_i|| '
+          'exceeds a threshold')
+    print('  One ATOM is one sample. No per-structure mean is taken first, so '
+          'this is a')
+    print('  count of divergent atoms and not, as the STABILITY table above '
+          'is, a count')
+    print('  of structures whose component-averaged MAE came out large. The '
+          'two answer')
+    print('  different questions and neither can be derived from the other.')
+    print('  Non-finite errors count as +inf, i.e. above every threshold; '
+          'they are')
+    print('  reported separately on the "non-finite" line so they can be '
+          'taken back out.')
+    for dk, ent in res['domains'].items():
+        print('-' * 72)
+        na = ent['n_atoms']
+        print('  %s  (n_atoms=%d)'
+              % (_BLOWUP_DOMAIN_LABEL.get(dk, dk.upper()),
+                 na.get(cols[0], 0)))
+        if len({na[L] for L in cols}) > 1:
+            print('  WARNING: the models disagree on this domain\'s atom '
+                  'count: %s.'
+                  % ', '.join('%s %d' % (n, na[L])
+                              for L, n in zip(cols, col_names)))
+            print('  Percentages below are each taken over that model\'s own '
+                  'total.')
+        head = '  %-18s' % 'threshold eV/A'
+        for n in col_names:
+            head += ' %10s' % n[:10]
+        head += ' %12s %8s' % ('seed mean', 'seed sd')
+        print(head)
+        for t in res['thresholds']:
+            e = ent['thresholds']['>%g' % t]
+            line = '  %-18s' % ('>%g' % t)
+            for L in cols:
+                line += ' %10d' % e['counts'][L]
+            line += ' %12.1f %8.1f' % (e['seed_mean'], e['seed_sd'])
+            print(line)
+        print('  -- the same counts as a % of the domain\'s atoms --')
+        for t in res['thresholds']:
+            e = ent['thresholds']['>%g' % t]
+            line = '  %-18s' % ('>%g' % t)
+            for L in cols:
+                line += ' %10.4f' % (100.0 * e['fractions'][L])
+            print(line)
+        nf = ent['n_nonfinite']
+        if any(nf[L] for L in cols):
+            line = '  %-18s' % 'non-finite'
+            for L in cols:
+                line += ' %10d' % nf[L]
+            print(line)
+            print('    (included in every count above; a model with '
+                  'non-finite errors has')
+            print('     no finite blow-up threshold and its counts are floors, '
+                  'not measurements)')
+
+
+# ---------------------------------------------------------------------------
+# v5 ADDITION: the pooled PER-ATOM force MAE, both conventions, per domain
+# ---------------------------------------------------------------------------
+# See the "PAPER TABLE 1c" note at the top of this file for why both
+# conventions are printed together and why neither converts into the other.
+#
+# The arithmetic is an exact identity, not an approximation. Writing a_s for
+# the atoms of structure s and N_s = |a_s|,
+#
+#     f_mae_comp_s = (1 / 3N_s) * sum_{i in a_s} sum_k |dF_i,k|
+#     f_mae_norm_s = (1 /  N_s) * sum_{i in a_s} ||dF_i||
+#
+# so sum_s N_s * f_mae_*_s / sum_s N_s collapses to the mean over every atom
+# (or every component) of the domain: the per-structure average cancels
+# against the weight. That is the same identity the module docstring states
+# for the v1 pooled MAE, here reused for the norm convention as well.
+#
+# Consequences worth knowing:
+#   * the table needs only per_structure.npz. It is produced whether or not
+#     per_atom_forces.npz exists, unlike every other per-atom table here;
+#   * the 'comp' row must reproduce, exactly, the 'pooled_mean_MAE' row that
+#     Table 1 already prints for f_mae_comp. That is checked and reported, and
+#     it is the cheapest possible guard against a domain mask or a row
+#     alignment having drifted between the two tables;
+#   * the denominator is sum(natoms) over the domain's structures. A structure
+#     that carried no forces has a non-finite f_mae_*, which _worst_fill maps
+#     to +inf, so it poisons the mean rather than being dropped -- the same
+#     policy, and the same visible failure, as the existing pooled row.
+_PERATOM_MAE_KEYS = (
+    ('norm', 'f_mae_norm', 'mean over the atoms of ||dF_i||'),
+    ('comp', 'f_mae_comp',
+     "mean over all 3N components of |dF_i,k| (MACE's MAE_F)"),
+)
+
+
+def _peratom_force_mae_table(labs, jobs, dom_masks, wcol='natoms'):
+    """Pooled per-atom force MAE per domain, both conventions.
+
+    jobs is [(column label, per-structure table in the COMMON row order)]; a
+    ceiling may be one of them and is carried as an extra column without
+    entering the seed statistics.
+    """
+    for tag, key, _d in _PERATOM_MAE_KEYS:
+        absent = [L for L, t in jobs if key not in t]
+        if absent:
+            raise ValueError(
+                'no %r column in the per-structure table(s) for %s. Only '
+                'tables written by v2 or later carry both force conventions; '
+                're-run those evaluations to get the %s row.'
+                % (key, ', '.join(absent), tag))
+    res = {'unit': 'eV/A',
+           'conventions': {tag: desc for tag, _k, desc in _PERATOM_MAE_KEYS},
+           'columns': [L for L, _t in jobs], 'domains': {}}
+    for dk, m in dom_masks:
+        ent = {'n_atoms': int(jobs[0][1][wcol][m].sum()),
+               'n_structures': int(m.sum())}
+        for tag, key, _desc in _PERATOM_MAE_KEYS:
+            vals = {L: _wmean(_worst_fill(t[key][m]),
+                              t[wcol][m].astype(np.float64))
+                    for L, t in jobs}
+            ordered = [vals[L] for L in labs]
+            mean, sd, _ = _seed_stats(ordered, labs)
+            ent[tag] = {
+                'values': vals, 'seed_mean': mean, 'seed_sd': sd,
+                'sigma': {L: ((vals[L] - mean) / sd
+                              if np.isfinite(vals[L]) and np.isfinite(sd)
+                              and sd > 0 else float('nan'))
+                          for L in vals},
+                'rank_order': [labs[i] for i in np.argsort(
+                    [v if np.isfinite(v) else np.inf for v in ordered])]}
+        res['domains'][dk] = ent
+    return res
+
+
+def _peratom_force_mae_direct(pa_jobs, dom_masks):
+    """The same two numbers taken straight from the per-atom arrays.
+
+    An independent route to the table above: it counts atoms as the per-atom
+    file reports them instead of trusting sum(natoms), and it never touches
+    the per-structure force columns. Used only to CHECK the table, never to
+    produce it, so a missing or unreadable per-atom file costs the check and
+    not the table. One model is held in memory at a time.
+    """
+    out = {}
+    for L, q, it, t in pa_jobs:
+        view = _peratom_view(load_per_atom_forces(q, rows=t), own_order=it)
+        out[L] = {}
+        for dk, m in dom_masks:
+            sel = m[view['row']]
+            n = int(sel.sum())
+            out[L][dk] = {
+                'n_atoms': n,
+                'norm': float(view['err_norm'][sel].mean()) if n
+                else float('nan'),
+                # every atom has exactly three components, so the unweighted
+                # mean of each atom's own mean|dF_i,k| is MAE_F over all of
+                # them -- see the note in _peratom_view.
+                'comp': float(view['comp_abs_mean'][sel].mean()) if n
+                else float('nan')}
+        del view
+    return out
+
+
+def _print_peratom_force_mae(res, labs, cols, col_names, direct=None,
+                             pooled_row=None):
+    print('=' * 72)
+    print('PER-ATOM FORCE MAE -- pooled over a domain\'s atoms, both '
+          'conventions')
+    print('  norm : %s' % res['conventions']['norm'])
+    print('  comp : %s' % res['conventions']['comp'])
+    print('  These are two different measurements of the same errors, not two '
+          'units of')
+    print('  one. Their ratio is bounded by [1, 3] and is 2 only for '
+          'isotropic errors,')
+    print('  so a number quoted in one convention may never be compared with '
+          'one in the')
+    print('  other. Report which you used.')
+    for dk, ent in res['domains'].items():
+        print('-' * 72)
+        print('  %s  (%d structures, %d atoms)'
+              % (_BLOWUP_DOMAIN_LABEL.get(dk, dk.upper()),
+                 ent['n_structures'], ent['n_atoms']))
+        head = '  %-18s' % 'convention'
+        for n in col_names:
+            head += ' %10s' % n[:10]
+        head += ' %12s %8s' % ('seed mean', 'seed sd')
+        for L, n in zip(cols, col_names):
+            if L not in labs or not _is_seed_label(L):
+                head += ' %10s' % ('sd(%s)' % n[:5])
+        print(head)
+        for tag, _key, _desc in _PERATOM_MAE_KEYS:
+            e = ent[tag]
+            line = '  %-18s' % ('%s [meV/A]' % tag)
+            for L in cols:
+                line += ' %10.2f' % (1000 * e['values'][L])
+            line += ' %12.2f %8.2f' % (1000 * e['seed_mean'],
+                                       1000 * e['seed_sd'])
+            for L in cols:
+                if L not in labs or not _is_seed_label(L):
+                    line += ' %10s' % _fmt_sigma(e['values'][L],
+                                                 e['seed_mean'], e['seed_sd'])
+            print(line)
+        print('    ranking by norm: %s' % ' < '.join(ent['norm']['rank_order']))
+        ratio = [ent['norm']['values'][L] / ent['comp']['values'][L]
+                 for L in cols if np.isfinite(ent['comp']['values'][L])
+                 and ent['comp']['values'][L] > 0]
+        if ratio:
+            print('    norm/comp ratio over the models: %.3f - %.3f '
+                  '(bounded by [1, 3]; 2 iff isotropic)'
+                  % (min(ratio), max(ratio)))
+        # Guard 1: the comp row must BE the pooled_mean_MAE row of Table 1.
+        if pooled_row and dk in pooled_row:
+            # n_cmp counts the comparisons actually made. It is NOT implied by
+            # `worst`: an exact match leaves worst at 0.0, and testing that
+            # alone would report a perfect agreement as "nothing to compare".
+            worst, who, n_cmp = 0.0, None, 0
+            for L in cols:
+                if L not in pooled_row[dk]:
+                    continue
+                a, b = ent['comp']['values'][L], pooled_row[dk][L]
+                if np.isfinite(a) and np.isfinite(b) and abs(b) > 0:
+                    n_cmp += 1
+                    r = abs(a - b) / abs(b)
+                    if r > worst:
+                        worst, who = r, L
+            if not n_cmp:
+                print('    (no overlap with Table 1 to check against)')
+            elif worst <= 1e-12:
+                print('    comp row reproduces Table 1\'s pooled_mean_MAE for '
+                      'f_mae_comp (%d models, max rel. dev. %.2g)'
+                      % (n_cmp, worst))
+            else:
+                print('    WARNING: comp row differs from Table 1\'s '
+                      'pooled_mean_MAE by up to %.3g (worst: %s). The two '
+                      'tables are not seeing the same rows.' % (worst, who))
+        # Guard 2: the same numbers rebuilt from the raw per-atom arrays.
+        if direct:
+            # n_cmp for the same reason as above: exact agreement is the
+            # expected outcome here, and must not read as "nothing compared".
+            worst, who, what, n_cmp = 0.0, None, None, 0
+            for L in cols:
+                for tag, _k, _d in _PERATOM_MAE_KEYS:
+                    a, b = ent[tag]['values'][L], direct[L][dk][tag]
+                    if np.isfinite(a) and np.isfinite(b) and abs(b) > 0:
+                        n_cmp += 1
+                        r = abs(a - b) / abs(b)
+                        if r > worst:
+                            worst, who, what = r, L, tag
+            na = {L: direct[L][dk]['n_atoms'] for L in cols}
+            if len(set(na.values())) > 1 or ent['n_atoms'] not in set(na.values()):
+                print('    NOTE: sum(natoms)=%d but the per-atom files hold %s '
+                      'atoms here; structures that carried no forces '
+                      'contribute none.'
+                      % (ent['n_atoms'],
+                         '/'.join(str(v) for v in sorted(set(na.values())))))
+            if not n_cmp:
+                print('    (per-atom cross-check produced nothing comparable)')
+            elif worst <= 1e-5:
+                print('    both conventions reproduced from the raw per-atom '
+                      'arrays (%d checks, max rel. dev. %.2g)'
+                      % (n_cmp, worst))
+            else:
+                print('    WARNING: the per-atom arrays give a different %s '
+                      'value for %s (rel. dev. %.3g). The per-structure force '
+                      'columns and the per-atom file disagree.'
+                      % (what, who, worst))
 
 
 # ---------------------------------------------------------------------------
@@ -3255,8 +3993,101 @@ def _fmt_sigma(x, mean, sd):
     return '%+6.1f' % ((x - mean) / sd)
 
 
+# v3 ADDITION -- aggregation-only re-classification of the bulk/non-bulk split.
+#
+# The descriptors every detector in NON_BULK_CRITERIA reads (packing, dim,
+# n_fragments, min_cn) are already columns of per_structure.npz, so the split
+# can be recomputed from a finished evaluation without re-running any model.
+# Only the PREDICATE changes: the descriptors themselves were built once, at
+# NON_BULK_BOND_SCALE, during the evaluation, and cannot be rebuilt here --
+# changing the bond scale still requires re-running the evaluation.
+#
+# Which descriptor columns each detector consumes. Kept next to the code that
+# uses it rather than next to NON_BULK_CRITERIA so that every v3 change stays
+# inside the aggregation section; it is only used for the sentinel check
+# below, and the predicate is always handed all four columns regardless.
+_DETECTOR_INPUTS = {
+    'packing': ('packing',),
+    'dim': ('dim',),
+    'fragmented': ('n_fragments',),
+    'dim_or_frag': ('dim', 'n_fragments'),
+    'min_cn': ('min_cn',),
+    'any': ('packing', 'dim', 'n_fragments', 'min_cn'),
+}
+
+
+def _rederive_domains(tables, detector, thr=NON_BULK_PACKING_THRESHOLD):
+    """
+    Relabel bulk / non-bulk in every loaded table from the stored descriptors.
+
+    Applied identically to every model AND to the ceiling, so a paired
+    comparison is never made across two different domain definitions.
+
+    The predicate is the very NON_BULK_CRITERIA entry the evaluation path uses
+    -- not a reimplementation of it -- and it is applied one row at a time,
+    because those predicates combine their tests with Python's `or`, which
+    does not vectorise. One pass over the descriptors is shared by all tables.
+
+    'overcompressed' is left exactly as stored. That screen runs BEFORE the
+    detector during evaluation, is independent of it, and its input
+    (contact_ratio) is only saved when SAVE_TRUE_CONTACT_RATIO is on, so
+    re-deriving it here would add a dependency for no gain.
+
+    Returns (criterion label, number of rows relabelled, n_overcompressed).
+    """
+    label, _needs_graph, fn = resolve_non_bulk_detector(detector)
+    cols = ('packing', 'dim', 'n_fragments', 'min_cn')
+
+    for name, t in tables:
+        for k in cols + ('domain',):
+            if k not in t:
+                raise ValueError(
+                    'cannot re-derive the domain: %s has no %r column. Only '
+                    'tables written by this script (v2 or later) carry the '
+                    'geometric descriptors.' % (name, k))
+    base = tables[0][1]
+
+    # Every table must describe the same structures with the same descriptors;
+    # otherwise they came from different reference files or different bond
+    # scales and a common relabelling would be meaningless. align_to() has
+    # already matched sid/natoms, but it does not look at the descriptors.
+    for name, t in tables[1:]:
+        for k in cols:
+            if not np.array_equal(t[k], base[k]):
+                raise ValueError(
+                    'cannot re-derive the domain: %r has different %r values '
+                    'than %r, so the tables were not built from the same '
+                    'reference file with the same NON_BULK_BOND_SCALE.'
+                    % (name, k, tables[0][0]))
+
+    # -1 is the sentinel the capture writes when a descriptor was never
+    # computed (an evaluation run with a detector that needs no bonded graph).
+    # Re-deriving from it would silently mislabel every affected structure.
+    for k in _DETECTOR_INPUTS[detector]:
+        if k in ('dim', 'n_fragments', 'min_cn') and np.any(base[k] < 0):
+            raise ValueError(
+                'cannot re-derive the domain with detector %r: the stored %r '
+                'column contains %d sentinel (-1) entries, i.e. the evaluation '
+                'ran with a detector that never built the bonded graph. '
+                'Re-run the evaluation with a graph-based --non_bulk_detector.'
+                % (detector, k, int(np.sum(base[k] < 0))))
+
+    old = base['domain']
+    new = old.copy()
+    keep = old == 'overcompressed'
+    for r in np.nonzero(~keep)[0]:
+        d = {'packing': float(base['packing'][r]),
+             'dim': int(base['dim'][r]),
+             'n_fragments': int(base['n_fragments'][r]),
+             'min_cn': int(base['min_cn'][r])}
+        new[r] = 'non_bulk' if bool(fn(d, thr)) else 'bulk'
+    for _name, t in tables:
+        t['domain'] = new.copy()
+    return label, int(np.sum(new != old)), int(np.sum(keep))
+
+
 def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
-                     ceiling_path=None):
+                     ceiling_path=None, agg_non_bulk_detector=None):
     """
     Read several per_structure.npz files and print/save the paper tables.
 
@@ -3299,7 +4130,6 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
                         and v.shape[:1] == t['sid'].shape})
         row_order.append(it)
         assert np.array_equal(aligned[-1]['sid'], base['sid'])
-    base_masks = _domain_masks(aligned[0])
 
     ceiling = None
     if ceiling_path:
@@ -3316,6 +4146,23 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
         ceiling['__label__'] = c.get('__label__', 'ceiling')
         assert np.array_equal(ceiling['sid'], aligned[0]['sid'])
 
+    # v3 ADDITION. With no --aggregate_non_bulk_detector this block does not
+    # run and the stored classification is used exactly as before.
+    rederived = None
+    if agg_non_bulk_detector is not None:
+        relabel_tabs = list(zip(labs, aligned))
+        if ceiling is not None:
+            relabel_tabs.append((str(ceiling['__label__']) + ' (ceiling)',
+                                 ceiling))
+        crit, n_moved, n_over = _rederive_domains(relabel_tabs,
+                                                  agg_non_bulk_detector)
+        rederived = {'detector': agg_non_bulk_detector, 'criterion': crit,
+                     'n_relabelled': n_moved, 'n_overcompressed_kept': n_over,
+                     'n_tables': len(relabel_tabs),
+                     'bond_scale_of_stored_descriptors': NON_BULK_BOND_SCALE}
+
+    base_masks = _domain_masks(aligned[0])
+
     n_seeds = sum(1 for L in labs if _is_seed_label(L))
     print('')
     print('=' * 72)
@@ -3326,12 +4173,25 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
           % n_seeds)
     if ceiling:
         print('  ceiling: %s' % ceiling['__label__'])
+    if rederived:
+        print('  domains: RE-DERIVED HERE, detector %r (%s)'
+              % (rederived['detector'], rederived['criterion']))
+        print('           %d of %d structures relabelled against the split '
+              'stored' % (rederived['n_relabelled'], len(aligned[0]['sid'])))
+        print('           at evaluation time; applied to all %d tables, the '
+              'ceiling included.' % rederived['n_tables'])
+        print('           %d overcompressed structures left as stored. The '
+              'descriptors' % rederived['n_overcompressed_kept'])
+        print('           were built at NON_BULK_BOND_SCALE=%g and are reused '
+              'as-is.' % NON_BULK_BOND_SCALE)
     if n_seeds < 2:
         print('  WARNING: fewer than 2 seed replicas -- no noise floor can be')
         print('  estimated, and no difference below can be called significant.')
 
     out = {'labels': labs, 'files': list(paths),
            'n_structures': int(len(aligned[0]['sid'])), 'metrics': {}}
+    if rederived:
+        out['rederived_domains'] = rederived
 
     # 'trimmed_mean' is kept because it is conventional, but it is printed
     # with a warning: see the note by TRIM_FRACTION. 'winsor_mean' is the
@@ -3755,6 +4615,180 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
             print('  Every other table in this report is unaffected and '
                   'is still written below.')
 
+
+        # v4 ADDITION, guarded exactly like the block above and for the same
+        # reason: these two tables may fail, but they may not take the run
+        # down with them. Everything above has been printed; nothing has been
+        # written to disk yet.
+        try:
+            pa_jobs4 = [(L, q, it, t) for L, q, it, t
+                        in zip(labs, paths, row_order, tabs)]
+            ceil_job4 = ('__ceiling__', ceiling_path, ceiling_order,
+                         ceiling_tab)
+            miss4 = [L for L, q, _o, _t in pa_jobs4 + [ceil_job4]
+                     if not has_per_atom_forces(q)]
+            print('-' * 72)
+            if miss4:
+                print('  PER-ATOM-BINNED CEILING PROFILES -- skipped: no '
+                      'per_atom_forces.npz for %s.'
+                      % ', '.join('the ceiling' if L == '__ceiling__' else L
+                                  for L in miss4))
+                print('  Re-run those evaluations without '
+                      '--no_per_atom_forces.')
+            else:
+                # The common atom order is the first model's, taken in the
+                # common ROW order. natoms is not used for it: a structure
+                # that carried no forces contributes no atoms, and the
+                # per-atom file is the only thing that knows.
+                with np.load(_per_atom_forces_path(paths[0]),
+                             allow_pickle=False) as _z0:
+                    _counts0 = np.diff(_z0['struct_offset'].astype(np.int64))
+                base_counts4 = _counts0[np.asarray(row_order[0],
+                                                   dtype=np.int64)]
+                ab = _atombin_profiles(labs, pa_jobs4, ceil_job4,
+                                       base_counts4, base_masks)
+                _print_atombin(
+                    ab, labs, 'norm', 1000.0, '%10.1f', 'meV/A',
+                    'CEILING-CONDITIONAL PROFILE, BINNED PER ATOM -- median '
+                    '||dF_i||.',
+                    ("ATOMS, not structures, are binned: a bin holds the "
+                     "atoms whose own",
+                     "ceiling error ||dF_i|| falls between the edges, and the "
+                     "statistic is the",
+                     "median of ||dF_i|| over exactly those atoms. The norm "
+                     "convention is used",
+                     "throughout, NOT MACE's component-average MAE_F. The "
+                     "ceiling column is",
+                     "biased low inside its own bins, and more strongly than "
+                     "in the",
+                     "per-structure profile above, because one atom's error "
+                     "is far noisier",
+                     "than a structure average; read it as the regime, never "
+                     "as skill."))
+                _print_atombin(
+                    ab, labs, 'rel', 1.0, '%10.4f', '-',
+                    'CEILING-CONDITIONAL PROFILE, BINNED PER ATOM -- median '
+                    'RELATIVE error.',
+                    ("rho_i = ||dF_i|| / ||F_ref,i||, dimensionless. Bins "
+                     "hold the atoms whose",
+                     "ceiling rho_i falls between the edges. rho = 1 is an "
+                     "edge on purpose: every",
+                     "bin above it is 'the error is at least as large as the "
+                     "force it should",
+                     "reproduce'. The denominator is the DFT reference and is "
+                     "therefore the same",
+                     "for every model, so this is a REWEIGHTING of the same "
+                     "per-atom errors, not",
+                     "a new measurement; which model wins on any single atom "
+                     "cannot change.",
+                     "The ceiling column is biased low inside its own bins."))
+                out['ceiling']['profile_atombin_norm'] = ab['norm']
+                out['ceiling']['profile_atombin_rel'] = ab['rel']
+                out['ceiling']['atombin_info'] = ab['info']
+        except Exception as exc:                     # noqa: BLE001
+            for _tag in ('profile_atombin_norm', 'profile_atombin_rel',
+                         'atombin_info'):
+                out['ceiling'].pop(_tag, None)
+            print('-' * 72)
+            print('  PER-ATOM-BINNED CEILING PROFILES -- skipped after an '
+                  'error:')
+            print('    %s: %s' % (type(exc).__name__, exc))
+            print('  Every other table in this report is unaffected and '
+                  'is still written below.')
+    # v5 ADDITION, guarded exactly like the two per-atom blocks above and for
+    # the same reason: this table may fail, but it may not take the run down
+    # with it. Everything above has been printed; nothing has been written to
+    # disk yet. It sits OUTSIDE the `if ceiling is not None` block because it
+    # is not a ceiling-relative table -- it needs no ceiling and is printed
+    # with or without one. When there is a ceiling it is carried as one extra
+    # column, as the combined CDF file already does, and it never enters the
+    # seed mean +- sd.
+    try:
+        blow_jobs = [(L, q, it, t) for L, q, it, t
+                     in zip(labs, paths, row_order, tabs)]
+        blow_cols = list(labs)
+        blow_names = list(labs)
+        if ceiling is not None:
+            blow_jobs.append(('__ceiling__', ceiling_path, ceiling_order,
+                              ceiling_tab))
+            blow_cols.append('__ceiling__')
+            blow_names.append(str(ceiling['__label__']))
+        miss5 = [L for L, q, _o, _t in blow_jobs
+                 if not has_per_atom_forces(q)]
+        if miss5:
+            print('=' * 72)
+            print('BLOW-UP CENSUS -- skipped: no per_atom_forces.npz for %s.'
+                  % ', '.join('the ceiling' if L == '__ceiling__' else L
+                              for L in miss5))
+            print('  Re-run those evaluations without --no_per_atom_forces.')
+        else:
+            blowup = _tbl_peratom_blowup(labs, blow_jobs,
+                                         _blowup_domain_masks(base_masks))
+            _print_peratom_blowup(blowup, labs, blow_cols, blow_names)
+            blowup['column_names'] = {L: n for L, n
+                                      in zip(blow_cols, blow_names)}
+            out['blowup_atoms'] = blowup
+    except Exception as exc:                         # noqa: BLE001
+        # Any partially written entry is dropped, so the JSON never carries
+        # half a table.
+        out.pop('blowup_atoms', None)
+        print('-' * 72)
+        print('  BLOW-UP CENSUS -- skipped after an error:')
+        print('    %s: %s' % (type(exc).__name__, exc))
+        print('  Every other table in this report is unaffected and is still '
+              'written below.')
+
+    # v5 ADDITION, guarded like every block above it. Independent of the
+    # census: it shares only the domain list, so that the two new tables are
+    # reported over exactly the same populations. Unlike every other per-atom
+    # table here it needs no per_atom_forces.npz -- those are used only to
+    # CHECK it -- so it survives a run where the per-atom files are missing.
+    try:
+        mae_jobs = list(zip(labs, aligned))
+        mae_cols = list(labs)
+        mae_names = list(labs)
+        if ceiling is not None:
+            mae_jobs.append(('__ceiling__', ceiling))
+            mae_cols.append('__ceiling__')
+            mae_names.append(str(ceiling['__label__']))
+        mae_domains = _blowup_domain_masks(base_masks)
+        pamae = _peratom_force_mae_table(labs, mae_jobs, mae_domains)
+
+        # Guard 1's input: Table 1's own pooled row, if that metric ran.
+        pooled_row = {}
+        for dk, blk in (out['metrics'].get('f_mae_comp', {})
+                        .get('domains', {}) or {}).items():
+            if 'pooled_mean_MAE' in blk:
+                pooled_row[dk] = blk['pooled_mean_MAE']['values']
+
+        # Guard 2's input: the same numbers from the raw atoms, when readable.
+        direct = None
+        pa_jobs5 = [(L, q, it, t) for L, q, it, t
+                    in zip(labs, paths, row_order, tabs)]
+        if ceiling is not None:
+            pa_jobs5.append(('__ceiling__', ceiling_path, ceiling_order,
+                             ceiling_tab))
+        if all(has_per_atom_forces(q) for _L, q, _o, _t in pa_jobs5):
+            try:
+                direct = _peratom_force_mae_direct(pa_jobs5, mae_domains)
+            except Exception as exc2:            # noqa: BLE001
+                direct = None
+                print('-' * 72)
+                print('  (per-atom cross-check of the force MAE unavailable: '
+                      '%s: %s)' % (type(exc2).__name__, exc2))
+
+        _print_peratom_force_mae(pamae, labs, mae_cols, mae_names,
+                                 direct=direct, pooled_row=pooled_row)
+        pamae['column_names'] = {L: n for L, n in zip(mae_cols, mae_names)}
+        out['peratom_force_mae'] = pamae
+    except Exception as exc:                     # noqa: BLE001
+        out.pop('peratom_force_mae', None)
+        print('-' * 72)
+        print('  PER-ATOM FORCE MAE -- skipped after an error:')
+        print('    %s: %s' % (type(exc).__name__, exc))
+        print('  Every other table in this report is unaffected and is still '
+              'written below.')
+
     # --- save ---------------------------------------------------------------
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, 'paper_tables.json'), 'w') as fh:
@@ -3794,6 +4828,32 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
                                                    1000 * r['seed_sd'],
                                                    r['best']))
 
+
+    # v4 ADDITION: the per-atom-binned profiles as tidy CSVs.
+    for tag, stat, sc in (
+            ('profile_atombin_norm', 'median ||dF_i|| [meV/A]', 1000.0),
+            ('profile_atombin_rel',
+             'median rho_i = ||dF_i||/||F_ref,i|| [dimensionless]', 1.0)):
+        for dk, rws in (out.get('ceiling', {}).get(tag, {}) or {}).items():
+            fn = os.path.join(out_dir, 'ceiling_%s_%s.csv' % (tag, dk))
+            with open(fn, 'w') as fh:
+                fh.write('# %s, over the ATOMS of each ceiling bin\n' % stat)
+                fh.write('# bins are cut on the ceiling model\'s own per-atom '
+                         'value, not on a per-structure mean\n')
+                if tag == 'profile_atombin_rel':
+                    fh.write('# atoms with ||F_ref,i|| <= %g eV/A excluded\n'
+                             % REL_MIN_REF_FORCE)
+                fh.write('bin,n_atoms,pct_of_domain,ceiling,'
+                         + ','.join(labs) + ',seed_mean,seed_sd,best\n')
+                for r in rws:
+                    fh.write('%s,%d,%.6g,%.8g,'
+                             % (r['bin'], r['n'], r['pct'],
+                                sc * r['ceiling_value']))
+                    fh.write(','.join('%.8g' % (sc * r['values'][L])
+                                      for L in labs))
+                    fh.write(',%.8g,%.8g,%s\n' % (sc * r['seed_mean'],
+                                                  sc * r['seed_sd'],
+                                                  r['best']))
     # combined CDF for the figure: one file, models as columns
     for dk in _DOMAIN_ORDER:
         if dk not in base_masks:
@@ -3815,6 +4875,80 @@ def aggregate_models(paths, labels=None, out_dir='matpes_paper_tables',
                     cells.append(float(w[v <= t].sum() / w.sum()))
                 fh.write('%.6g,' % (1000 * t) +
                          ','.join('%.8g' % c for c in cells) + '\n')
+
+    # v5 ADDITION: the blow-up census as tidy CSVs, one per domain, models as
+    # columns. Counts first, then the same numbers as a percentage of that
+    # model's own atom count in the domain, in '<label>_pct' columns -- the
+    # layout the table_*.csv files already use for their '<label>_sigma'
+    # columns. Thresholds are in eV/A, NOT meV/A as the CDF file's grid is:
+    # this is a census, not a curve, and a blow-up threshold is quoted in eV/A
+    # everywhere else in this script.
+    blow = out.get('blowup_atoms')
+    if blow:
+        cnames = blow.get('column_names', {})
+        bcols = list(blow['columns'])
+        hdr = [cnames.get(L, L) for L in bcols]
+        for dk, ent in blow['domains'].items():
+            fn = os.path.join(out_dir, 'blowup_atoms_%s.csv' % dk)
+            with open(fn, 'w') as fh:
+                fh.write('# ATOMS whose own force error norm ||dF_i|| exceeds '
+                         'the threshold, domain %s\n' % dk)
+                fh.write('# strict test (> threshold); norm convention, NOT '
+                         "MACE's component-average MAE_F,\n")
+                fh.write('# and no per-structure mean taken first\n')
+                fh.write('# n_atoms in domain: %s\n'
+                         % ', '.join('%s %d' % (h, ent['n_atoms'][L])
+                                     for h, L in zip(hdr, bcols)))
+                fh.write('# non-finite ||dF_i||, counted above every '
+                         'threshold: %s\n'
+                         % ', '.join('%s %d' % (h, ent['n_nonfinite'][L])
+                                     for h, L in zip(hdr, bcols)))
+                fh.write('threshold_eV_per_A,' + ','.join(hdr) +
+                         ',seed_mean,seed_sd,' +
+                         ','.join('%s_pct' % h for h in hdr) + '\n')
+                for t in blow['thresholds']:
+                    e = ent['thresholds']['>%g' % t]
+                    fh.write('%.6g,' % t +
+                             ','.join('%d' % e['counts'][L] for L in bcols) +
+                             ',%.8g,%.8g,' % (e['seed_mean'], e['seed_sd']) +
+                             ','.join('%.6g' % (100.0 * e['fractions'][L])
+                                      for L in bcols) + '\n')
+
+    # v5 ADDITION: the per-atom force MAE as tidy CSVs, one per domain, the
+    # two conventions as rows and the models as columns. Values are written in
+    # meV/A and the header says so: the table_*.csv files above write their
+    # values UNSCALED (eV/A) with no unit anywhere in the file, which is a
+    # trap worth not repeating in a new file.
+    pam = out.get('peratom_force_mae')
+    if pam:
+        pnames = pam.get('column_names', {})
+        pcols = list(pam['columns'])
+        phdr = [pnames.get(L, L) for L in pcols]
+        for dk, ent in pam['domains'].items():
+            fn = os.path.join(out_dir, 'peratom_force_mae_%s.csv' % dk)
+            with open(fn, 'w') as fh:
+                fh.write('# pooled PER-ATOM force MAE over domain %s, '
+                         'in meV/A\n' % dk)
+                fh.write('# norm = %s\n' % pam['conventions']['norm'])
+                fh.write('# comp = %s\n' % pam['conventions']['comp'])
+                fh.write('# the two are different measurements of the same '
+                         'errors; their ratio is bounded by [1, 3]\n')
+                fh.write('# and equals 2 only for isotropic errors, so they '
+                         'may never be compared with each other\n')
+                fh.write('# %d structures, %d atoms (sum of natoms over the '
+                         'domain)\n' % (ent['n_structures'], ent['n_atoms']))
+                fh.write('convention,' + ','.join(phdr) +
+                         ',seed_mean,seed_sd,' +
+                         ','.join('%s_sigma' % h for h in phdr) + '\n')
+                for tag, _key, _desc in _PERATOM_MAE_KEYS:
+                    e = ent[tag]
+                    fh.write(tag + ',' +
+                             ','.join('%.8g' % (1000 * e['values'][L])
+                                      for L in pcols) +
+                             ',%.8g,%.8g,' % (1000 * e['seed_mean'],
+                                              1000 * e['seed_sd']) +
+                             ','.join('%.4g' % e['sigma'][L]
+                                      for L in pcols) + '\n')
 
     print('=' * 72)
     print('Aggregated tables written to %s/' % out_dir)
@@ -3917,6 +5051,21 @@ def parse_args():
                         'its directory name. Labels starting with rdm/seed/'
                         'random are treated as the random-seed replicas that '
                         'define the noise floor.')
+    p.add_argument('--aggregate_non_bulk_detector', default=None,
+                   choices=sorted(NON_BULK_CRITERIA),
+                   help='v3, --aggregate only: recompute the bulk / non-bulk '
+                        'split from the geometric descriptors already stored '
+                        'in every per_structure.npz, instead of using the '
+                        'classification saved at evaluation time. Applied '
+                        'identically to every model AND to the --ceiling, so '
+                        'the paired comparisons stay on one definition. The '
+                        'overcompressed domain is left as stored. Only the '
+                        'predicate changes: the descriptors were built at '
+                        f'NON_BULK_BOND_SCALE={NON_BULK_BOND_SCALE:g} during '
+                        'the evaluation and cannot be rebuilt here, so '
+                        'changing the bond scale still needs a re-evaluation. '
+                        'Default: use the stored classification, i.e. behave '
+                        'exactly like v2.')
     p.add_argument('--aggregate_out', default='matpes_paper_tables',
                    help='output directory for --aggregate. '
                         'Default: matpes_paper_tables')
@@ -3931,7 +5080,8 @@ def main():
     if args.aggregate:
         aggregate_models(args.aggregate, labels=args.labels,
                          out_dir=args.aggregate_out,
-                         ceiling_path=args.ceiling)
+                         ceiling_path=args.ceiling,
+                         agg_non_bulk_detector=args.aggregate_non_bulk_detector)
         return
 
     # TEST_SET_PATH / MODEL_PATH are None by default (they used to be the

@@ -1,0 +1,9 @@
+# pooled PER-ATOM force MAE over domain bulk, in meV/A
+# norm = mean over the atoms of ||dF_i||
+# comp = mean over all 3N components of |dF_i,k| (MACE's MAE_F)
+# the two are different measurements of the same errors; their ratio is bounded by [1, 3]
+# and equals 2 only for isotropic errors, so they may never be compared with each other
+# 242319 structures, 2234968 atoms (sum of natoms over the domain)
+convention,v14,OMAT0,DIRECT,rdm1,rdm2,rdm3,rdm4,mace-omat-0-medium,seed_mean,seed_sd,v14_sigma,OMAT0_sigma,DIRECT_sigma,rdm1_sigma,rdm2_sigma,rdm3_sigma,rdm4_sigma,mace-omat-0-medium_sigma
+norm,306.37879,260.16955,318.73394,312.49586,311.31265,309.24058,313.46331,260.16955,311.6281,1.8184955,-2.887,-28.3,3.908,0.4772,-0.1735,-1.313,1.009,-28.3
+comp,148.5957,126.40121,154.16818,151.30082,150.90598,149.72144,151.67636,126.40121,150.90115,0.84704118,-2.722,-28.92,3.857,0.4718,0.005698,-1.393,0.9152,-28.92

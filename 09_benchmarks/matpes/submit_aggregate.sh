@@ -51,6 +51,16 @@
 #               self-check on the ceiling arithmetic.
 # OUT_DIR       Where the aggregated tables are written.
 #
+# NON_BULK_DETECTOR
+#               Passed as --aggregate_non_bulk_detector. It recomputes the
+#               bulk / non-bulk split from the geometric descriptors already
+#               stored in every per_structure.npz, instead of using the split
+#               saved at evaluation time, and applies it identically to every
+#               model AND to the ceiling. The paper's tables use 'dim'
+#               (periodic dimensionality < 3), so leave it as it is to
+#               reproduce paper_tables/. Set it to the empty string to use the
+#               classification each evaluation stored.
+#
 # THE DEFAULTS BELOW ARE THE PAPER'S SEVEN MODELS and are a TEMPLATE, not
 # something this repository can reproduce on its own: only the v14 entry comes
 # out of this pipeline. The other six -- MACE-OMAT-0, a DIRECT-selected subset
@@ -65,6 +75,7 @@ P="${MATPES_RUNS:?set MATPES_RUNS to the directory containing the per-model *_pa
 RUN_DIRS=(v14_paper omat0_paper direct_paper rdm1_paper rdm2_paper rdm3_paper rdm4_paper)
 LABELS=(v14 OMAT0 DIRECT rdm1 rdm2 rdm3 rdm4)
 CEILING_DIR="omat0_paper"
+NON_BULK_DETECTOR="dim"
 OUT_DIR="matpes_paper_tables"
 # ============================================================================
 
@@ -98,4 +109,5 @@ time srun ./eval_with_report_efs.py \
     --aggregate "${AGG_DIRS[@]}" \
     --labels "${LABELS[@]}" \
     --ceiling "$(resolve "$CEILING_DIR")" \
+    ${NON_BULK_DETECTOR:+--aggregate_non_bulk_detector "$NON_BULK_DETECTOR"} \
     --aggregate_out "$OUT_DIR"
