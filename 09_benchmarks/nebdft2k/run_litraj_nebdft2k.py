@@ -46,11 +46,11 @@ U and spin polarisation, not to the model).
 The dataset's `has_specific_TM` index column encodes exactly this. VERIFIED against the
 shipped nebDFT2k_index.csv: has_specific_TM is True for a row IFF its chemsys contains one
 of {Co, Cr, Fe, Mn, Mo, Ni, V, W} -- i.e. precisely MP's (and OMat24's) Hubbard-U element
-set. 646 rows are False, 1035 True. `--tm-policy` therefore controls a genuine
+set. 646 rows are False, 1035 True (621 / 1035 after the f-block cut). `--tm-policy` therefore controls a genuine
 level-of-theory switch, not a chemistry preference:
 
     flag (default) -- run everything, report the two splits separately (published layout)
-    drop           -- score only the 646 U-free rows: the one subset where the model's and
+    drop           -- score only the U-free rows (621 after the f-block cut): the one subset where the model's and
                       the reference's level of theory actually agree
     keep           -- run everything, single pooled metric (not recommended: it averages
                       over a functional mismatch)
@@ -97,7 +97,7 @@ Table 4 numbers:
     unbounded step budget. The target keeps (0.1, 100). That asymmetry exists only in the
     notebook. `--symmetric-endpoints --endpoint-fmax 0.1 --endpoint-steps 100` restores the
     DFT driver's own setting and is arguably the better configuration; use it for a
-    sensitivity check, not for numbers you compare to the paper.
+    sensitivity check, not for numbers you compare to the LiTraj paper.
   * The DFT band is relaxed at fmax=0.1; the notebook's `qn.run(steps=100)` leaves fmax at
     ASE's 0.05 default, so the MLIP band is driven TIGHTER than the reference band was, and
     is correspondingly more likely to exhaust the 100-step budget. `--band-fmax 0.1` matches
@@ -766,7 +766,7 @@ def main() -> None:
                    help="Hops whose chemsys contains an MP/OMat24 Hubbard-U element "
                         "(Co/Cr/Fe/Mn/Mo/Ni/V/W) while the reference is plain PBE. "
                         "flag (default): run all, report the two splits separately (the "
-                        "published layout). drop: score only the 646 U-free hops, where the "
+                        "published layout). drop: score only the 621 U-free hops, where the "
                         "levels of theory actually agree. keep: single pooled metric.")
     p.add_argument("--k", type=float, default=PUB_K,
                    help=f"NEB spring constant in eV/A^2 (published: {PUB_K}).")
@@ -782,7 +782,8 @@ def main() -> None:
                         "of 0.05. Pass 0.1 to match LiTraj's own DFT driver "
                         "(scripts/ase_run_vasp.py), which relaxed the reference band at 0.1.")
     p.add_argument("--symmetric-endpoints", action="store_true",
-                   help="SENSITIVITY CHECK ONLY, not paper-comparable. Relax BOTH end-points "
+                   help="Deviates from the LiTraj paper (not comparable to its Table 4); used for "
+                        "the results of our manuscript. Relax BOTH end-points "
                         "with --endpoint-fmax/--endpoint-steps instead of reproducing the "
                         "notebook's asymmetric source (ASE defaults) / target (0.1, 100) pair.")
     p.add_argument("--endpoint-fmax", type=float, default=0.05,

@@ -130,11 +130,12 @@ python run_litraj_nebdft2k.py --prefetch --cache-dir "$NEB_CACHE_DIR"
 sbatch --account=<your allocation> submit_nebdft2k.sh
 ```
 
-> **This is the sensitivity-check protocol, not the published one.**
-> `--symmetric-endpoints` is marked in the script's own help as *"SENSITIVITY
-> CHECK ONLY, not paper-comparable"*, and the published LiTraj cap is
-> `--n-steps 100` against the 10000 used here. Deliberate — but any comparison
-> against the LiTraj reference table must say so.
+> **This is the protocol of our manuscript (SI Sec. S4), not the original
+> LiTraj one.** `--symmetric-endpoints` (both end-points relaxed to 0.05 eV/Å)
+> and `--n-steps 10000` deviate from the LiTraj publication (asymmetric
+> end-points, `--n-steps 100`), which is why the script's help marks the flag as
+> not comparable to LiTraj's Table 4. Deliberate — but any comparison against
+> the LiTraj reference table must say so.
 
 > **Only the CONVERGED-only aggregate block is quotable.** The "ALL items" rows
 > are numerically meaningless (MAE ~1×10⁸ eV, R² ~ −1.5×10¹⁹) because a few
@@ -142,5 +143,6 @@ sbatch --account=<your allocation> submit_nebdft2k.sh
 > design.
 
 `--tm-policy flag` runs all 1,656 hops and reports the two Hubbard-U splits
-separately. The 646-hop U-free split is where the model's training and
+separately. The 621-hop U-free split (646 in the full 1,681-hop index; the
+25 hops removed by the f-block cut are all U-free) is where the model's training and
 nebDFT2k's plain-PBE reference actually agree; quote that as the headline.

@@ -80,7 +80,7 @@ fi
 # faithful configuration anyway.
 #
 # NOTE ON --tm-policy: left at the default `flag`, which runs all 1656 hops and reports the
-# two splits separately at aggregate time. The w/o-Hubbard-U split (646 hops) is the one
+# two splits separately at aggregate time. The w/o-Hubbard-U split (621 hops after the f-block cut) is the one
 # where the model's PBE+U training and nebDFT2k's plain-PBE reference actually agree -- quote
 # that as the headline and the with-U split as a diagnostic. Use `--tm-policy drop` only if
 # you want to spend the GPU hours solely on the clean subset.
