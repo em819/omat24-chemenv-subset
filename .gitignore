@@ -12,6 +12,12 @@ out*.log
 log_*.txt
 memory_monitor.log
 
+# Stage 04 baselines (DIRECT features and selections, random id lists)
+*.npy
+*.ids.json
+*.indices.json
+random_subset_mat_ids.txt
+
 # Stage 05-08
 *.xyz
 *.model

@@ -168,6 +168,20 @@ greedy 837,273 → redundancy prune −5.11% → 794,511 → floor top-up +1,210
 after top-up; all demand classes satisfied. The per-rung class counts sum
 exactly (11 rungs + catch-all = 194,928,651 tokens; 3,443,621 classes).
 
+### 04 baselines — DIRECT and random subsets
+
+- **`04_subset_selection/DIRECT/`** (env E): split the extxyz into 50,000-frame
+  chunks → M3GNet `readout` features (512 shards) → stack → PCA (21 PCs) →
+  BIRCH (`n` = 116500, threshold 0.1092) → *k* = 4 per cluster → write
+  `train.xyz`. **Boundary check:** 64,648,643 rows × 128 · 116,328 clusters ·
+  **458,754 structures**. See the README there for the matgl readout weights.
+- **`04_subset_selection/random/`** (env A, reads `freq_chemenv.duckdb` from
+  stage 02): 35 reserved materials + reservoir sample, one job per seed →
+  `random_subset_mat_ids.txt` + `train.xyz`. **Boundary check:** pool
+  64,648,643 · 35 reserved · 356,249 selected.
+
+Both write the training extxyz directly, so they skip stage 05.
+
 ---
 
 ## 05 — Extract the selected frames

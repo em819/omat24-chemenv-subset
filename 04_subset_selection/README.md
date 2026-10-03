@@ -86,3 +86,15 @@ demand classes satisfied.
 `env_ids_found_distribution.txt` holds the per-token atom counts of the selected
 subset. Compare it against the corpus-wide counts in `chemenv_frequency_table`
 to see which environments the selection enriched.
+
+## Baseline subsets
+
+The two comparison subsets of the paper are built by their own scripts in the
+subdirectories. Each writes a `train.xyz` that replaces stage 05's output; the
+models are then trained with stages 06–08 unchanged (hyperparameters in SI
+Table S2).
+
+| Subset | Directory | Size | Env |
+|---|---|---|---|
+| DIRECT | [`DIRECT/`](DIRECT/README.md) | 458,754 structures / 6,532,238 atoms | E |
+| random ×4 | [`random/`](random/README.md) | 356,249 structures / ~6.5 M atoms each | A |

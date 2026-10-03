@@ -26,6 +26,7 @@ per-site Chemenv tokens (parquet)
    │  03  integer token ids + material vectors   128 cores × 2 d
    ▼
    │  04  coverage-driven subset selection   128 cores × 2 d, 400 GB
+   │      (baselines: 04/DIRECT, 04/random → their own train.xyz)
    ▼
 795,721 material ids
    │  05  extract those frames to extxyz     4 cores × 12 h
@@ -62,6 +63,9 @@ from the data archive (see below); stage 05 turns that list into a training set.
 | 02 | `build_frequency_db.py` | cpu | 1 × 1 (1 core) | — | 1 d | A |
 | 03 | `build_integer_tokens.py` | cpu | 1 × 1 (128 c) | — | 2 d | A |
 | 04 | `select_subset.py` | cpu | 1 × 1 (128 c, 400 GB) | — | 2 d | A |
+| 04/DIRECT | `featurize_m3gnet.py` | cpu | 4 × 128 | — | 3 h | E |
+| 04/DIRECT | `direct_sampling.py` | cpu | 1 × 1 (128 c, ~500 GB) | — | 6 h | E |
+| 04/random | `select_random_subset.py` (per seed) | cpu | 1 × 1 (128 c) | — | < 1 d | A |
 | 05 | `generate_train_set.py` | cpu | 1 × 1 (4 c) | — | 12 h | A |
 | 06 | `preprocess_parallel.py` | cpu | 1 × 1 (128 c) | 0 | 12 h | B |
 | 07 | `run_mace.py train.yaml` | gpu | 2 × 4 | 8 | 2 d | B |
@@ -82,7 +86,7 @@ On another cluster you will need to adjust partitions, accounts and module names
 
 ## Environments
 
-Four environments are needed; `envs/` records each one exactly. See
+Four environments are needed, plus env E for the DIRECT baseline; `envs/` records each one. See
 [`envs/README.md`](envs/README.md) for which stage uses which, how to rebuild
 them, and the EasyBuild modules that must be loaded alongside.
 
@@ -92,6 +96,7 @@ them, and the EasyBuild modules that must be loaded alongside.
 | **B** `envB-mace` | 06–08, 09/matpes, 10.1/10.3/10.4 | 3.12.12 | mace-torch 0.3.14, torch 2.5.0, cuequivariance 0.8.1 |
 | **C** `envC-matcalc` | 09/matcalc | 3.12.3 | matcalc 0.5.1, mace-torch 0.3.16, pymatgen 2026.5.4, phonopy 4.1.0 |
 | **D** `envD-mliparena` | 09/stability, 09/nebdft2k | 3.12.3 | mlip-arena 0.2.0, litraj 0.1, mace-torch 0.3.16 |
+| **E** `envE-direct` | 04/DIRECT | 3.11.13 | matgl 4.0.3, torch 2.4.1 (CPU), dgl 2.5.0, scikit-learn 1.9.0 |
 
 Every dependency resolves to a released PyPI version — there are no git or
 local installs to chase.
@@ -151,6 +156,11 @@ Not in git. Deposited at *(Zenodo DOI — fill in)*:
   the 440 node-days of stages 01–04.
 - **`env_ids_found_distribution.txt`** — the per-token atom counts of the
   selected subset (5,463,490 rows, summing to 6,566,253 atoms).
+- **The DIRECT and the four random id lists** (458,754 and 356,247–356,249
+  OMat24 ids). Neither selection can be repeated bit for bit from the public
+  data (frame order of the extxyz conversion for DIRECT, DuckDB reservoir
+  sampling for random; see the READMEs in `04_subset_selection/`), so the id
+  lists are what reproduces the baseline training sets.
 - Benchmark trajectories and per-structure outputs (~5 GB).
 
 Committed, because they are small and are the numbers quoted in the paper:

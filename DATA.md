@@ -22,11 +22,13 @@ set stops the job immediately with a message naming the variable.
 | 5 | MLIP-Arena RM24 structure database | yes | 09/stability | `HF_CACHE` |
 | 6 | LiTraj nebDFT2k (65 MB) | yes | 09/nebdft2k | `NEB_CACHE_DIR` |
 | 7 | MACE-OMAT-0 medium checkpoint | yes | 10.1, 10.3, 09/matpes aggregate | `FEATURE_MODEL`, `MODEL` |
-| 8 | Six comparison models (DIRECT + 4 replicas + OMAT-0) | **no** | 09/matpes aggregate only | `RUN_DIRS` |
+| 8 | Six comparison models (DIRECT + 4 replicas + OMAT-0) | OMAT-0 yes; the rest via `04_subset_selection/{DIRECT,random}` + 06–08 | 09/matpes aggregate only | `RUN_DIRS` |
 | 9 | The published subset id list | archive | 05 (shortcut past 01–04) | `SUBSET_IDS` |
 
-Items 1–7 and 9 are obtainable. Item 8 is not reproducible from this repository
-and is needed only for the full seven-model MatPES comparison table.
+Items 1–7 and 9 are obtainable. Of item 8, MACE-OMAT-0 is public; the DIRECT
+and random models are trained with stages 06–08 on the subsets built in
+`04_subset_selection/DIRECT` and `04_subset_selection/random` (or on the
+deposited id lists, which reproduce the published subsets exactly).
 
 ---
 
@@ -139,11 +141,17 @@ model instead — but use one model consistently across 10.1 and 10.3.
 > TorchScript model has no such attributes. Stage 09's matcalc and matpes are
 > the opposite. See `08_compile_model/README.md`.
 
-## 8. The six other MatPES comparison models — not reproducible here
+## 8. The six other MatPES comparison models
 
 `09_benchmarks/matpes/submit_aggregate.sh` aggregates **seven** models: the
 Chemenv subset model (v14), MACE-OMAT-0, a DIRECT-selected subset model, and
-four random-seed replicas `rdm1`…`rdm4`. Only v14 comes out of this pipeline.
+four random-seed replicas `rdm1`…`rdm4`. The DIRECT and random subsets come
+from `04_subset_selection/DIRECT/` and `04_subset_selection/random/`, and their
+models from stages 06–08 with the batch sizes of SI Table S2. Neither baseline
+selection can be repeated bit for bit from the public data (frame order of the
+extxyz conversion for DIRECT, DuckDB reservoir sampling for random; see the
+READMEs there), so use the deposited id lists with stage 05 to rebuild the
+published training sets.
 
 The four `rdm*` replicas are what define the **noise floor** every significance
 statement in the paper tables rests on, and `--aggregate` recognises a replica
@@ -190,13 +198,12 @@ Not input data, but it has to be planned for:
 
 ## Known gaps
 
-Four things a reproducer needs that no script here provides:
+Three things a reproducer needs that no script here provides:
 
 1. **OMat24 ASE database → extxyz conversion**, preserving `sid` and
    `initial_magmoms`. Stage 05 cannot proceed without extxyz.
 2. **Rare-earth filtering** of the validation and test sets.
 3. **MatPES → extxyz conversion** with `energy` / `forces` / `stress` keys.
-4. **The six comparison models** of §8.
 
 And one behavioural caveat: `.xyz.gz` / `.extxyz.gz` appear in
 `input_backend.py`'s suffix list and `check_input.py` accepts them (ASE
