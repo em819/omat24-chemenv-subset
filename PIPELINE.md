@@ -11,6 +11,16 @@ named variable in that script's `>>> USER CONFIGURATION <<<` block.
 
 ---
 
+## 00 — Convert OMat24 to extxyz
+
+`00_convert_omat24/convert_omat24.py` (env A, MPI, one array task per
+sub-dataset) writes `$OMAT_XYZ_DIR/<subset>/all_structures_<subset>.xyz` from
+the unpacked ASE databases and drops structures with rare earths or actinides.
+Frames follow the database order. Stage 05 and the baselines in
+`04_subset_selection/` read these files; stage 01 reads the databases.
+
+---
+
 ## 01 — Chemenv tokenisation of OMat24
 
 **Env A** · `cpu` · 20 nodes × 128 ranks · 2 days per sub-dataset
@@ -201,10 +211,9 @@ frames through verbatim (no re-parsing, no re-writing of the geometry).
 795,721/795,721 ids matched (100%). The scanned count equals the material count
 from stage 01 exactly, which is what proves nothing was lost or double-counted.
 
-> The extxyz files themselves are produced from the OMat24 ASE databases by a
-> conversion step outside this repository. Stage 05 assumes they exist — it
-> streams raw text and cannot read an ASE database or a gzipped file. See
-> [`DATA.md`](DATA.md).
+> The extxyz files themselves are produced from the OMat24 ASE databases by
+> stage 00. Stage 05 streams raw text and cannot read an ASE database or a
+> gzipped file. See [`DATA.md`](DATA.md).
 
 ---
 

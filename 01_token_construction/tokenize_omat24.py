@@ -55,7 +55,9 @@ from mpi4py.futures import MPICommExecutor
 #
 #   OMAT_ALLOW_MISSING_MAGMOMS  Set to '1' ONLY if you deliberately want spin-0
 #                    tokens. Without magmoms ASE silently returns zeros and you
-#                    get a complete, plausible and WRONG token set.
+#                    get a complete, plausible and WRONG token set. Not needed
+#                    for the aimd-* sub-datasets and rattled-relax, which carry
+#                    no magmoms in OMat24.
 #
 # OUTPUT goes into the CURRENT WORKING DIRECTORY: chemenv_<subset>_rank<N>.hdf5,
 # one file per MPI rank. Run each sub-dataset in its own directory named exactly
@@ -126,7 +128,7 @@ SUBSET_NAME = None
 #predicts what this script will do, using only the stdlib + ASE -- cannot drift
 #from it. sys.path[0] is this file's directory, so the import works wherever the
 #job is launched from.
-from input_backend import EXTXYZ_SUFFIXES, resolve_input
+from input_backend import EXTXYZ_SUFFIXES, magmoms_expected, resolve_input
 
 
 def build_frame_offsets(path):
@@ -791,6 +793,8 @@ def main():
     #                        array is absent, so a magmom-less input silently
     #                        produces a complete, plausible, and WRONG token set
     #                        in which every atom has spin 0.
+    #                        Exempt: the sub-datasets that carry no magmoms in
+    #                        OMat24 (SUBSETS_WITHOUT_MAGMOMS in input_backend.py).
     #
     # Set OMAT_ALLOW_MISSING_MAGMOMS=1 only if you genuinely intend spin-0 tokens.
     #Only rank 0 probes, but the VERDICT is broadcast and every rank raises on
@@ -807,7 +811,11 @@ def main():
                     f"same sid= token in the extxyz comment line. Available "
                     f"keys: {sorted(probe.info)}")
             has_magmoms = 'initial_magmoms' in probe.arrays
-            if not has_magmoms:
+            if not has_magmoms and not magmoms_expected(subset_name):
+                print(f"Note: frame 0 of '{subset_name}' carries no initial_magmoms, "
+                      f"as in OMat24 for this sub-dataset; its spins are 0, as in "
+                      f"the published tokens.", flush=True)
+            elif not has_magmoms:
                 msg = (f"{dataset_path}: frame 0 carries no per-atom "
                        f"initial_magmoms. The <spin> field of every token would "
                        f"silently become 0, producing tokens that do NOT match "

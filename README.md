@@ -17,7 +17,7 @@ in git — see [Data availability](#data-availability).
 ## The pipeline at a glance
 
 ```
-OMat24 ASE DBs
+OMat24 ASE DBs ──── 00  convert to extxyz, drop rare earths (read by 05 and the 04 baselines)
    │
    │  01  tokenise every site               2560 MPI ranks × 2 d × 11 sub-datasets
    ▼
@@ -58,6 +58,7 @@ from the data archive (see below); stage 05 turns that list into a training set.
 
 | Stage | Script | Partition | Nodes × tasks | GPUs | Walltime | Env |
 |---|---|---|---|---|---|---|
+| 00 | `convert_omat24.py` ×11 | cpu | 5 × 128 = 640 ranks | — | 2 d each | A |
 | 01a | `tokenize_omat24.py` ×11 | cpu | 20 × 128 = 2560 ranks | — | 2 d each | A |
 | 01b | `concat_to_parquet.py` | cpu | 1 × 11 | — | 1 d | A |
 | 02 | `build_frequency_db.py` | cpu | 1 × 1 (1 core) | — | 1 d | A |

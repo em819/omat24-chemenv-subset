@@ -37,7 +37,7 @@ import argparse
 import os
 import sys
 
-from input_backend import load_subsets, resolve_input
+from input_backend import load_subsets, magmoms_expected, resolve_input
 
 DEFAULT_SUBSETS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "subsets.txt")
@@ -80,7 +80,10 @@ def check_one(subset, data_dir, fmt, template, n_probe):
             f"frame 0 has no info['sid'] (keys: {sorted(a.info)[:8]}). mat_id "
             f"comes from it, and stage 05 matches the same sid= token.")
 
-    if "initial_magmoms" not in a.arrays:
+    if "initial_magmoms" not in a.arrays and not magmoms_expected(subset):
+        notes.append("frame 0 carries no initial_magmoms, as in OMat24 for this "
+                     "sub-dataset (spin 0, as in the published tokens)")
+    elif "initial_magmoms" not in a.arrays:
         problems.append(
             "frame 0 carries no per-atom initial_magmoms. Every token's <spin> "
             "field would silently become 0 and the tokens would NOT match the "

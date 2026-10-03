@@ -13,6 +13,21 @@ import os
 # the whole filename instead.
 EXTXYZ_SUFFIXES = ('.xyz', '.extxyz', '.xyz.gz', '.extxyz.gz')
 
+# OMat24 sub-datasets whose frames carry no per-atom initial_magmoms (apart from
+# a few aimd frames). ASE returns zeros for the missing array, so their <spin>
+# field is 0, in the published tokens too. Every other sub-dataset, including
+# any name not listed here, is expected to carry magmoms.
+SUBSETS_WITHOUT_MAGMOMS = frozenset({
+    'aimd-from-PBE-1000-npt', 'aimd-from-PBE-1000-nvt',
+    'aimd-from-PBE-3000-npt', 'aimd-from-PBE-3000-nvt',
+    'rattled-relax',
+})
+
+
+def magmoms_expected(subset):
+    """True if frames of `subset` should carry initial_magmoms."""
+    return subset not in SUBSETS_WITHOUT_MAGMOMS
+
 
 def find_ase_db(db_dir, subset):
     """Return the ASE-DB directory for `subset`, or None."""

@@ -39,6 +39,8 @@ the file parses and that frame 0 carries the three things the tokeniser reads:
 `tokenize_omat24.py` repeats the same check on frame 0 and refuses to start if it
 fails. `OMAT_ALLOW_MISSING_MAGMOMS=1` overrides it deliberately.
 
+The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
+
 ## Configure
 
 | Variable | Default | Meaning |

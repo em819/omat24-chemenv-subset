@@ -54,7 +54,7 @@ resolves each sub-dataset through the same module the tokeniser uses
 (`input_backend.py`) and prints which backend it picked, so it doubles as a check
 that auto-detection sees what you expect. Stage 01 repeats the frame-0 check
 itself and refuses to start if it fails (`OMAT_ALLOW_MISSING_MAGMOMS=1` overrides
-deliberately).
+deliberately). The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
 
 Sub-dataset names and order live in `01_token_construction/subsets.txt`. Both
 the Python and the SLURM script read that one file — edit it there if your file

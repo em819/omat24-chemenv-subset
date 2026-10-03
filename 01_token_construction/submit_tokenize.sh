@@ -29,7 +29,8 @@
 # The frames must carry sid= in the comment line and per-atom initial_magmoms.
 # The script checks frame 0 for both and refuses to start otherwise -- a
 # magmom-less input would silently give every atom spin 0 and produce a
-# complete, plausible, wrong token set.
+# complete, plausible, wrong token set. Exempt: the aimd-* sub-datasets and
+# rattled-relax, which carry no magmoms in OMat24.
 # ==========================================================================
 
 # -u catches an unset required variable; -e is deliberately NOT set because

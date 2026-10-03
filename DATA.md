@@ -51,9 +51,9 @@ As uncompressed extxyz that is on the order of 100–200 GB.
 Stage 05 streams raw text and matches the `sid=` token without ever parsing a
 frame, which is what makes its output byte-identical to the source. That also
 means it cannot read an ASE database, and it cannot read a `.gz`. If your copy
-of OMat24 is in `.aselmdb` form you must convert it to extxyz before stage 05 —
-**that conversion is not in this repository.** The conversion must preserve
-`sid` and `initial_magmoms`.
+of OMat24 is in `.aselmdb` form, convert it with stage 00
+(`00_convert_omat24/`), which keeps `sid` and `initial_magmoms` and drops the
+rare-earth structures.
 
 ### What every frame must carry
 
@@ -65,6 +65,8 @@ Three things, two of which fail *silently* if absent:
 | `info['sid']` | `sid=<id>` in the comment line | `mat_id`, and the key stage 05 matches on | `KeyError` on every frame |
 | per-atom `initial_magmoms` | a `Properties=` column | the `<spin>` field of **every token** | **ASE returns zeros.** You get a complete, plausible, wrong token set in which every atom has spin 0 |
 
+The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
+
 Check before committing any compute — it takes seconds:
 
 ```bash
@@ -74,8 +76,8 @@ python 01_token_construction/check_input.py --data-dir /path/to/omat24
 ## 2. Validation set — OMat24 official validation split
 
 **657,756 frames**, extxyz, rare earths removed. Public (the `val` split of the
-same HuggingFace dataset), but the extxyz conversion and the rare-earth filter
-are not in this repository.
+same HuggingFace dataset); convert it with stage 00 like the training split
+and join the 11 files into one (see `00_convert_omat24/README.md`).
 
 Consumed by:
 - stage 06, `valid_file` in `preprocess.yaml`
@@ -88,7 +90,7 @@ and drop `test_file`. The model stays comparable; the loss curve no longer is.
 ## 3. Test set — MatPES PBE 2025.2
 
 **323,096 frames**, extxyz with `energy` / `forces` / `stress`, rare earths
-removed. Public from MatPES; conversion and filtering are again yours to do.
+removed. Public from MatPES; conversion and filtering are yours to do.
 
 Consumed by stage 06 (`test_file`) and stage 09/matpes (`TESTSET`). The two must
 be the same file — the MatPES benchmark's 323,096-structure boundary check is
@@ -198,12 +200,10 @@ Not input data, but it has to be planned for:
 
 ## Known gaps
 
-Three things a reproducer needs that no script here provides:
+One thing a reproducer needs that no script here provides:
 
-1. **OMat24 ASE database → extxyz conversion**, preserving `sid` and
-   `initial_magmoms`. Stage 05 cannot proceed without extxyz.
-2. **Rare-earth filtering** of the validation and test sets.
-3. **MatPES → extxyz conversion** with `energy` / `forces` / `stress` keys.
+1. **MatPES → extxyz conversion** with `energy` / `forces` / `stress` keys, and
+   rare-earth filtering of the result.
 
 And one behavioural caveat: `.xyz.gz` / `.extxyz.gz` appear in
 `input_backend.py`'s suffix list and `check_input.py` accepts them (ASE

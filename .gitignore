@@ -18,8 +18,9 @@ memory_monitor.log
 *.indices.json
 random_subset_mat_ids.txt
 
-# Stage 05-08
+# Stage 05-08 (and stage 00, whose rank files survive an aborted run)
 *.xyz
+*.xyz.rank*
 *.model
 *.pt
 processed_data/
