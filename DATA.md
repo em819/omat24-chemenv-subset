@@ -57,15 +57,13 @@ rare-earth structures.
 
 ### What every frame must carry
 
-Three things, two of which fail *silently* if absent:
+A periodic cell and `sid` are required; magnetic moments are used where present:
 
 | | Where | Used for | If missing |
 |---|---|---|---|
 | a periodic cell | the frame | the geometry chemenv analyses | chemenv errors out |
 | `info['sid']` | `sid=<id>` in the comment line | `mat_id`, and the key stage 05 matches on | `KeyError` on every frame |
-| per-atom `initial_magmoms` | a `Properties=` column | the `<spin>` field of **every token** | **ASE returns zeros.** You get a complete, plausible, wrong token set in which every atom has spin 0 |
-
-The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
+| per-atom `initial_magmoms` (where available) | a `Properties=` column | the `<spin>` field of every token | spin 0 for those atoms, as in the paper: the `aimd-*` sub-datasets and `rattled-relax` carry no magmoms in OMat24 |
 
 Check before committing any compute — it takes seconds:
 

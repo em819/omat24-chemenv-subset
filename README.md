@@ -133,12 +133,10 @@ The short version:
    export OMAT_DATA_DIR=/path/to/omat24
    ```
 4. Before committing any compute, verify your files carry what the tokeniser
-   needs — `sid`, per-atom `initial_magmoms`, a periodic cell:
+   needs — `sid` and a periodic cell:
    ```bash
    python 01_token_construction/check_input.py --data-dir /path/to/omat24
    ```
-   Missing magmoms are the dangerous case: ASE returns zeros silently, so the
-   run would succeed and produce a plausible, wrong token set.
 
 SLURM is not required — the submit scripts are wrappers around plain
 `mpirun` / `python`.

@@ -29,14 +29,13 @@ Everything else is a matter of setting variables and having the hardware.
 
 ## What your extxyz files must contain
 
-Per frame, the tokeniser reads exactly three things. Two of them fail *silently*
-if absent, which is why there is a preflight check.
+Per frame, the tokeniser reads exactly three things:
 
 | | Where | Used for | If missing |
 |---|---|---|---|
 | ASE `Atoms` (positions, species, **periodic cell**) | the frame | the geometry chemenv analyses | chemenv errors out |
 | `info['sid']` | the comment line, as `sid=<id>` | `mat_id`; also the key stage 05 matches on | `KeyError` on every frame |
-| per-atom `initial_magmoms` | a `Properties=` column | the `<spin>` field of **every token** | **ASE returns zeros.** You get a complete, plausible, and wrong token set in which every atom has spin 0 |
+| per-atom `initial_magmoms` (where available) | a `Properties=` column | the `<spin>` field of every token | spin 0 for those atoms, as in the paper: the `aimd-*` sub-datasets and `rattled-relax` carry no magmoms in OMat24 |
 
 Check before committing any compute:
 
@@ -49,12 +48,11 @@ python check_input.py --data-dir /path/to/omat24 \
 ```
 
 It needs only ASE and numpy, runs in seconds, and reports per sub-dataset
-whether the file parses and carries `sid`, magmoms and a periodic cell. It
+whether the file parses and carries `sid` and a periodic cell. It
 resolves each sub-dataset through the same module the tokeniser uses
 (`input_backend.py`) and prints which backend it picked, so it doubles as a check
-that auto-detection sees what you expect. Stage 01 repeats the frame-0 check
-itself and refuses to start if it fails (`OMAT_ALLOW_MISSING_MAGMOMS=1` overrides
-deliberately). The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
+that auto-detection sees what you expect. Stage 01 repeats the frame-0 `sid`
+check itself and refuses to start if it fails.
 
 Sub-dataset names and order live in `01_token_construction/subsets.txt`. Both
 the Python and the SLURM script read that one file — edit it there if your file
@@ -150,7 +148,6 @@ needs the source edited.
 | `OMAT_INPUT_FORMAT` | `auto` | `auto`, `ase-db` or `extxyz` |
 | `OMAT_FILE_TEMPLATE` | *(unset)* | extxyz filename pattern, e.g. `all_structures_{subset}.xyz` |
 | `OMAT_DB_INDEX` | `0` | which line of `subsets.txt` |
-| `OMAT_ALLOW_MISSING_MAGMOMS` | `0` | set to `1` to accept spin-0 tokens |
 
 Under `auto`, each sub-dataset is resolved on its own: a **directory** at
 `$OMAT_DATA_DIR/<subset>` means ASE DB, a **file** at `<subset>.xyz` (or
@@ -294,8 +291,8 @@ naming the variable, rather than reading someone else's data.
 
 ## Suggested order of attack
 
-1. `check_input.py` — minutes, and it is the only step that can tell you early
-   that your extxyz lacks magmoms.
+1. `check_input.py` — minutes, and it tells you early whether stage 01 can read
+   your files.
 2. Stage 01 on **one** sub-dataset, with a small `--array` of one and a short
    walltime, to confirm the tokens look right before committing 440 node-days.
    Inspect a few `env_id` values in the resulting HDF5.

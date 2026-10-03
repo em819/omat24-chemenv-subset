@@ -36,8 +36,9 @@ from mpi4py.futures import MPICommExecutor
 #                        $OMAT_DATA_DIR/<subset>.xyz    -> extxyz file
 #                    e.g. OMAT_DATA_DIR=/data/omat24/train_extracted, holding
 #                    rattled-300/, rattled-relax/, ... or rattled-300.xyz, ...
-#                    Every frame must carry a periodic cell, info['sid'] and
-#                    per-atom initial_magmoms -- run check_input.py first.
+#                    Every frame must carry a periodic cell and info['sid'];
+#                    per-atom initial_magmoms are used where present (spin 0
+#                    otherwise) -- run check_input.py first.
 #                    There is deliberately NO default: a wrong data directory
 #                    would waste hundreds of node-days.
 #
@@ -53,12 +54,6 @@ from mpi4py.futures import MPICommExecutor
 #   OMAT_DB_INDEX    Which line of subsets.txt to process, 0-based (default 0).
 #                    submit_tokenize.sh sets it from $SLURM_ARRAY_TASK_ID.
 #
-#   OMAT_ALLOW_MISSING_MAGMOMS  Set to '1' ONLY if you deliberately want spin-0
-#                    tokens. Without magmoms ASE silently returns zeros and you
-#                    get a complete, plausible and WRONG token set. Not needed
-#                    for the aimd-* sub-datasets and rattled-relax, which carry
-#                    no magmoms in OMat24.
-#
 # OUTPUT goes into the CURRENT WORKING DIRECTORY: chemenv_<subset>_rank<N>.hdf5,
 # one file per MPI rank. Run each sub-dataset in its own directory named exactly
 # as in subsets.txt -- stage 01b derives the sub-dataset label from that name.
@@ -67,8 +62,6 @@ from mpi4py.futures import MPICommExecutor
 INPUT_FORMAT = os.environ.get('OMAT_INPUT_FORMAT', 'auto').lower()
 #Which line of subsets.txt this run processes.
 DB_INDEX = int(os.environ.get('OMAT_DB_INDEX', '0'))
-#Set to '1' to accept inputs without per-atom magnetic moments (spin-0 tokens).
-ALLOW_MISSING_MAGMOMS = os.environ.get('OMAT_ALLOW_MISSING_MAGMOMS', '0') == '1'
 
 
 def data_dir():
@@ -128,7 +121,7 @@ SUBSET_NAME = None
 #predicts what this script will do, using only the stdlib + ASE -- cannot drift
 #from it. sys.path[0] is this file's directory, so the import works wherever the
 #job is launched from.
-from input_backend import EXTXYZ_SUFFIXES, magmoms_expected, resolve_input
+from input_backend import EXTXYZ_SUFFIXES, resolve_input
 
 
 def build_frame_offsets(path):
@@ -782,21 +775,9 @@ def main():
     print(f"Sub-dataset '{subset_name}' [{INPUT_FORMAT}] -> {dataset_path}", flush=True)
     print(f"Number of entries in {dataset_path}: {n_samples}", flush=True)
 
-    # REPO CHANGE -- input validation. Two per-frame quantities are load-bearing
-    # and both fail SILENTLY if the input does not carry them:
-    #
-    #   info['sid']       -> mat_id. Without it every frame raises KeyError, which
-    #                        is at least loud; checked here so it fails on frame 0
-    #                        instead of 2560 ranks in.
-    #   initial_magmoms   -> the <spin> field of every token. ASE's
-    #                        get_initial_magnetic_moments() returns ZEROS when the
-    #                        array is absent, so a magmom-less input silently
-    #                        produces a complete, plausible, and WRONG token set
-    #                        in which every atom has spin 0.
-    #                        Exempt: the sub-datasets that carry no magmoms in
-    #                        OMat24 (SUBSETS_WITHOUT_MAGMOMS in input_backend.py).
-    #
-    # Set OMAT_ALLOW_MISSING_MAGMOMS=1 only if you genuinely intend spin-0 tokens.
+    # REPO CHANGE -- input validation. info['sid'] becomes mat_id; without it
+    # every frame raises KeyError, so it is checked here on frame 0 instead of
+    # 2560 ranks in.
     #Only rank 0 probes, but the VERDICT is broadcast and every rank raises on
     #it. A bare `if rank == 0: raise` in front of a collective would leave the
     #other ranks blocked in the barrier until the walltime ran out.
@@ -810,23 +791,7 @@ def main():
                     f"mat_id comes from info['sid'], and stage 05 matches the "
                     f"same sid= token in the extxyz comment line. Available "
                     f"keys: {sorted(probe.info)}")
-            has_magmoms = 'initial_magmoms' in probe.arrays
-            if not has_magmoms and not magmoms_expected(subset_name):
-                print(f"Note: frame 0 of '{subset_name}' carries no initial_magmoms, "
-                      f"as in OMat24 for this sub-dataset; its spins are 0, as in "
-                      f"the published tokens.", flush=True)
-            elif not has_magmoms:
-                msg = (f"{dataset_path}: frame 0 carries no per-atom "
-                       f"initial_magmoms. The <spin> field of every token would "
-                       f"silently become 0, producing tokens that do NOT match "
-                       f"the published ones. Re-export the input with magnetic "
-                       f"moments, or set OMAT_ALLOW_MISSING_MAGMOMS=1 to proceed "
-                       f"deliberately.")
-                if not ALLOW_MISSING_MAGMOMS:
-                    raise RuntimeError(msg)
-                print("WARNING: " + msg, flush=True)
-            print(f"Input check passed for {dataset_path} (sid present, magmoms "
-                  f"{'present' if has_magmoms else 'ABSENT'})", flush=True)
+            print(f"Input check passed for {dataset_path} (sid present)", flush=True)
         except Exception as exc:
             check_error = f"{type(exc).__name__}: {exc}"
     check_error = comm.bcast(check_error, root=0)

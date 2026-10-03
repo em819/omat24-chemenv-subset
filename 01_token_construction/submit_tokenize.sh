@@ -26,11 +26,9 @@
 # Set OMAT_FILE_TEMPLATE if your extxyz files are named differently, e.g.
 #   export OMAT_FILE_TEMPLATE='all_structures_{subset}.xyz'
 #
-# The frames must carry sid= in the comment line and per-atom initial_magmoms.
-# The script checks frame 0 for both and refuses to start otherwise -- a
-# magmom-less input would silently give every atom spin 0 and produce a
-# complete, plausible, wrong token set. Exempt: the aimd-* sub-datasets and
-# rattled-relax, which carry no magmoms in OMat24.
+# The frames must carry sid= in the comment line; the script checks frame 0
+# and refuses to start otherwise. Per-atom initial_magmoms are used where
+# present; atoms without one get spin 0.
 # ==========================================================================
 
 # -u catches an unset required variable; -e is deliberately NOT set because
@@ -47,8 +45,8 @@ set -uo pipefail
 #                 <subset>/ (ASE database) or a file <subset>.xyz (extxyz).
 #                 Example: /data/omat24/train_extracted
 #                 Public source: https://huggingface.co/datasets/fairchem/OMAT24
-#                 Every frame needs a periodic cell, info['sid'] and per-atom
-#                 initial_magmoms -- verify with check_input.py first.
+#                 Every frame needs a periodic cell and info['sid'] --
+#                 verify with check_input.py first.
 # OMAT_INPUT_FORMAT   auto (default) | ase-db | extxyz. 'auto' resolves each
 #                 sub-dataset on its own and refuses if both forms exist.
 # OMAT_FILE_TEMPLATE  Optional. extxyz filename pattern inside OMAT_DATA_DIR

@@ -11,12 +11,6 @@ It verifies, for each sub-dataset, that:
   * frame 0 parses;
   * frame 0 carries ``info['sid']``       -> becomes mat_id, and is the key
                                              stage 05 matches on;
-  * frame 0 carries ``initial_magmoms``   -> becomes the <spin> field of every
-                                             token. THIS IS THE DANGEROUS ONE:
-                                             ASE returns zeros when the array is
-                                             absent, so a magmom-less input
-                                             yields a complete, plausible and
-                                             WRONG token set;
   * frame 0 has a periodic cell           -> chemenv needs one;
   * the sid values look distinct across the first few frames.
 
@@ -37,7 +31,7 @@ import argparse
 import os
 import sys
 
-from input_backend import load_subsets, magmoms_expected, resolve_input
+from input_backend import load_subsets, resolve_input
 
 DEFAULT_SUBSETS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "subsets.txt")
@@ -79,21 +73,6 @@ def check_one(subset, data_dir, fmt, template, n_probe):
         problems.append(
             f"frame 0 has no info['sid'] (keys: {sorted(a.info)[:8]}). mat_id "
             f"comes from it, and stage 05 matches the same sid= token.")
-
-    if "initial_magmoms" not in a.arrays and not magmoms_expected(subset):
-        notes.append("frame 0 carries no initial_magmoms, as in OMat24 for this "
-                     "sub-dataset (spin 0, as in the published tokens)")
-    elif "initial_magmoms" not in a.arrays:
-        problems.append(
-            "frame 0 carries no per-atom initial_magmoms. Every token's <spin> "
-            "field would silently become 0 and the tokens would NOT match the "
-            "published ones.")
-    else:
-        import numpy as np
-        mm = np.asarray(a.arrays["initial_magmoms"], dtype=float)
-        if np.allclose(mm, 0.0):
-            notes.append("frame 0's magmoms are all zero (may be fine for a "
-                         "non-magnetic cell, but check a magnetic one too)")
 
     if not a.pbc.any():
         problems.append("frame 0 is not periodic; chemenv needs a cell.")

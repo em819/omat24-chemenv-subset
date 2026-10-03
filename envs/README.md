@@ -83,7 +83,8 @@ EasyBuild names; substitute your site's equivalents.
 
 | Stages | Modules | Why |
 |---|---|---|
-| 00, 01, 10.2 | `env/release/2024.1`, `OpenMPI/5.0.3-GCC-13.3.0`, `HDF5/1.14.5-gompi-2024a` | `mpi4py` and parallel `h5py` are linked against these |
+| 00 | `env/release/2024.1`, `OpenMPI/5.0.3-GCC-13.3.0` | `mpi4py` is linked against it |
+| 01, 10.2 | `env/release/2024.1`, `OpenMPI/5.0.3-GCC-13.3.0`, `HDF5/1.14.5-gompi-2024a` | `mpi4py` and parallel `h5py` are linked against these |
 | 06 | `env/release/2024.1` only | CUDA is loaded **deliberately not** — mapping the CUDA libraries into 128 fork workers exhausts the commit limit |
 | 07, 08, 09/matpes, 10.1, 10.3, 10.4 | `env/release/2024.1`, `CUDA/12.6.0` | torch + `cuequivariance` acceleration |
 | 09/matcalc, 09/stability, 09/nebdft2k | `env/release/2024.1`, `Python/3.12.3-GCCcore-13.3.0`, `CUDA/12.6.0` | these venvs were built on the module Python |

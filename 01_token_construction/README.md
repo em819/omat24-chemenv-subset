@@ -28,18 +28,17 @@ python check_input.py --data-dir /path/to/omat24 \
 ```
 
 Needs only ASE and numpy; runs in seconds. It verifies for each sub-dataset that
-the file parses and that frame 0 carries the three things the tokeniser reads:
+the file parses and that frame 0 has a periodic cell and a `sid`. What the
+tokeniser reads per frame:
 
 | | Used for | If missing |
 |---|---|---|
 | a periodic cell | the geometry chemenv analyses | chemenv errors out |
 | `info['sid']` | `mat_id`, and the key stage 05 matches on | `KeyError` on every frame |
-| per-atom `initial_magmoms` | the `<spin>` field of **every token** | **silent corruption** — ASE returns zeros, so you get a complete, plausible, wrong token set |
+| per-atom `initial_magmoms` (where available) | the `<spin>` field of every token | spin 0 for those atoms, as in the paper (the `aimd-*` sub-datasets and `rattled-relax` carry no magmoms in OMat24); not checked |
 
-`tokenize_omat24.py` repeats the same check on frame 0 and refuses to start if it
-fails. `OMAT_ALLOW_MISSING_MAGMOMS=1` overrides it deliberately.
-
-The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in OMat24; for them the check accepts the absence (their spins are 0 in the published tokens too). The list is `SUBSETS_WITHOUT_MAGMOMS` in `input_backend.py`.
+`tokenize_omat24.py` repeats the `sid` check on frame 0 and refuses to start if
+it fails.
 
 ## Configure
 
@@ -49,7 +48,6 @@ The four `aimd-*` sub-datasets and `rattled-relax` carry no `initial_magmoms` in
 | `OMAT_INPUT_FORMAT` | `auto` | `auto`, `ase-db` (fairchem `AseDBDataset`) or `extxyz` |
 | `OMAT_FILE_TEMPLATE` | *(unset)* | extxyz filename pattern, e.g. `all_structures_{subset}.xyz` |
 | `OMAT_DB_INDEX` | `0` | which line of `subsets.txt`; set from `SLURM_ARRAY_TASK_ID` |
-| `OMAT_ALLOW_MISSING_MAGMOMS` | `0` | accept spin-0 tokens |
 
 ### Input format
 
