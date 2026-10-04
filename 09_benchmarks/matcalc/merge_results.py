@@ -55,6 +55,7 @@ PCT_PROPS = frozenset({
     "bulk_modulus_vrh", "shear_modulus_vrh", "heat_capacity",  # raw (salvage path)
 })
 # Physically positive-definite quantities: a negative prediction is unphysical
+# (mechanically unstable modulus / negative heat capacity) and worth counting.
 POSITIVE_PROPS = PCT_PROPS
 # Ground-truth values with |DFT| below this are excluded from percentage metrics
 _PCT_EPS = 1e-9
@@ -267,6 +268,7 @@ def main() -> None:
 
         # Failed (all-NaN) rows are already excluded from every metric above, so
         # removing them changes nothing -- only the unphysical FINITE predictions
+        # (negative modulus/CV etc.) actually move the numbers. Recompute the block
         # only when there is something finite to exclude.
         if n_unphys:
             clean = merged[~(failed | unphys)].reset_index(drop=True)

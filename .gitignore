@@ -38,6 +38,7 @@ bands/
 mace_features/
 report_card.parquet
 chemenv_metrics.log
+!10_latent_space_analysis/4_cluster_metrics/chemenv_metrics.log
 *.npz
 *.traj
 

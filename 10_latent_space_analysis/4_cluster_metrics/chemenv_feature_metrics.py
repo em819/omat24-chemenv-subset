@@ -296,6 +296,7 @@ except Exception:
 
 # ----------------------------------------------------------------------------
 # Preprocessing: per-feature z-score, then PCA via the DxD covariance matrix
+# (memory-safe: never forms an NxN matrix; covariance is accumulated in chunks).
 # ----------------------------------------------------------------------------
 def standardize_and_pca(X, var_keep=0.95, max_dims=50, cosine=False, chunk=200_000):
     n, d = X.shape
@@ -442,6 +443,7 @@ def element_null(name, pool_idx, Xp, max_size, n_boot=150, cap=100_000, seed=0):
 # class. Edge i-j iff j is among i's k nearest OR i among j's -> A | A^T.
 # We deliberately do NOT use the mutual-kNN graph (A & A^T): mutual-kNN is so
 # sparse that even a single Gaussian blob shatters into hundreds of tiny pieces
+# (verified in --selftest), which would spuriously flag every id as multimodal.
 # The union kNN graph is the standard connectivity graph (spectral clustering,
 # Isomap) and a robust scalable proxy for single-linkage / 0-dim persistent
 # homology: 1 big component => one connected region; >=2 components each holding
@@ -477,6 +479,7 @@ def knn_graph_components(Xc, k_graph, massive_frac=0.10):
 # RNG seeded by the class CODE (base_seed + code), not by loop/dispatch order, so
 # every class gets the same subsample whether run serial or on N cores.
 # Xp is passed once; joblib memmaps it read-only and shares it across workers
+# (no per-task copy). idx selects this class's rows.
 # ----------------------------------------------------------------------------
 def class_expensive(code, idx, Xp, sigma2_global, null_logg, null_mean, null_std,
                     k_graph, graph_cap, massive_frac, base_seed, err=None, rel=None,
@@ -715,6 +718,7 @@ def main():
           f"global RMS radius {np.sqrt(sigma2_global):.3f})", flush=True)
 
     # Per-central-element null: same machinery, but each element's null is drawn only
+    # from that element's atoms. compactness_z_element then measures localization BEYOND
     # element identity (factoring out the dominant element axis of the latent space).
     enull = {}                                   # element name -> (logg, mean, std, sig2)
     if args.element_null:

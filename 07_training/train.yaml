@@ -83,7 +83,7 @@ lr_factor          : 0.8            # decay multiplier on plateau
 patience           : 40             # early-stop if no improvement for 40 epochs
 
 # ===== batching =====
-batch_size         : 128             # per-GPU; effective ~1280 with 80 procs
+batch_size         : 128             # per-GPU; effective 1024 on 8 GPUs
 valid_batch_size   : 64
 
 # ===== run length =====

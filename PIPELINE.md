@@ -192,6 +192,11 @@ exactly (11 rungs + catch-all = 194,928,651 tokens; 3,443,621 classes).
 
 Both write the training extxyz directly, so they skip stage 05.
 
+`04_subset_selection/subset_statistics.py` (env A) compares the training sets:
+structure and atom counts and the per-atom DFT force distribution. **Boundary
+check:** EnvTok 795,721 structures / 6,566,253 atoms (8.25 atoms per
+structure), median |F| 1.144 eV/Å; four random seeds pooled: median 1.135 eV/Å.
+
 ---
 
 ## 05 — Extract the selected frames
@@ -304,6 +309,26 @@ benchmarks across three environments:
 **Boundary check:** MatPES evaluates 323,096 structures / 3,011,678 atoms —
 exactly the stage-06 test count.
 
+### 09 summaries
+
+`matcalc/summarize_matcalc.py`, `matpes/blowup_attribution.py`,
+`stability/summarize_stability.py`, `nebdft2k/table_nebdft2k.py` and
+`radar/build_radar_metrics.py` turn the raw outputs of all models into the
+paper's numbers (see the benchmarks README). **Boundary checks** for
+MACE-OMAT-0, the EnvTok model and the four random seeds (the DIRECT values
+depend on the DIRECT model used):
+
+- MatCalc: mean softening 2.84 / 4.21 / 3.89 %; formation-energy MAE
+  56.0 / 62.7 / 65.5 meV/atom; G median +1.42 / −5.77 / −5.62 %.
+- MatPES: atoms with a force error above 10 eV/Å 4150 / 4428 / 2924–6226;
+  96.3 % of EnvTok's in cells with a 0D or 1D fragment; 97.2 % of
+  MACE-OMAT-0's in nitrogen-only cells.
+- Stability: first failure of MACE-OMAT-0 at 3.14 ps; mean completion
+  75.4 / 92.1 / 81.2 %; physically diverged (CUDA OOM excluded) 31 / 6 / 86 of
+  80 / 80 / 320 runs.
+- nebDFT2k: barrier MAE without Hubbard U 0.146 / 0.124 / 0.148 ± 0.037 eV
+  (621 hops).
+
 ---
 
 ## 10 — Chemenv tokens in the MACE latent space
@@ -348,3 +373,12 @@ the stage-06 validation set.
 > carry large forces have large absolute errors regardless of how compact they
 > are. The script reports the relative-error correlation alongside it; that is
 > the one to read.
+
+### 10.5 `5_descriptor_analysis/` — Env A / B · 1 CPU node
+
+The analyses of SI S5 on the outputs of 10.3, 10.4 and stage 03 (see the
+stage-10 README). **Boundary checks:** 18,445 descriptors with at least 30
+atoms; 18,153 single-region (98.42 %) and 292 split; 574 diffuse (3.11 %);
+neighbours with a different descriptor share the central element in 99.9 %,
+the ligand-element set in 69.7 % and the coordination number in 56.9 % of
+cases.

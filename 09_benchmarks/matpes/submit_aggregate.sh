@@ -61,12 +61,11 @@
 #               reproduce paper_tables/. Set it to the empty string to use the
 #               classification each evaluation stored.
 #
-# THE DEFAULTS BELOW ARE THE PAPER'S SEVEN MODELS and are a TEMPLATE, not
-# something this repository can reproduce on its own: only the v14 entry comes
-# out of this pipeline. The other six -- MACE-OMAT-0, a DIRECT-selected subset
-# model, and four random-seed replicas -- are outside its scope, so you must
-# either supply them yourself or cut RUN_DIRS/LABELS down to the models you
-# actually have. With no rdm* entry there is no noise floor.
+# THE DEFAULTS BELOW ARE THE PAPER'S SEVEN MODELS and are a TEMPLATE: the
+# EnvTok model (v14), MACE-OMAT-0 (public), the DIRECT model and four random-seed
+# replicas (trained from the subsets of 04_subset_selection/DIRECT and
+# 04_subset_selection/random with stages 06-08). Cut RUN_DIRS/LABELS down to the
+# models you actually have. With no rdm* entry there is no noise floor.
 #
 #     MATPES_RUNS=/path/to/runs sbatch --account=<your allocation> submit_aggregate.sh
 # ============================================================================

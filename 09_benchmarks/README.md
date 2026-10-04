@@ -30,6 +30,21 @@ that has to happen from a login node first:
 If the cache is missing the scripts warn and continue, so a compute node with
 internet just works. `BENCH_OFFLINE=1` makes them stop instead.
 
+After the runs, one summary script per benchmark turns the raw outputs of all
+models into the numbers quoted in the paper, and `radar/` combines them:
+
+| Script | Reads | Paper |
+|---|---|---|
+| `matcalc/summarize_matcalc.py` | `<Bench>_<model>_FULL.csv` of `merge_results.py` | Fig. 2, MatCalc text, SI S4.2 / Fig. S4 |
+| `matpes/blowup_attribution.py` | the `*_paper/` directories + the MatPES extxyz | MatPES text on errors > 10 eV/Å and on polymeric nitrogen |
+| `stability/summarize_stability.py` | `results/` of `run_stability_bench.py` | Fig. 3, MD-stability text, SI S4.3 |
+| `nebdft2k/table_nebdft2k.py` | `results_litraj_nebdft2k/` | Table II, Li-migration text, SI S4.4 |
+| `radar/build_radar_metrics.py` | the four summaries + `matpes/paper_tables/` + `*_paper/` | radar figure, Conclusions |
+
+They take one output directory per model with `--runs` and `--labels`; labels
+starting with `rdm` / `seed` / `random` are random-seed replicas and are
+reported per seed and as the group `random`.
+
 ---
 
 ## `matcalc/` — MatCalc-Bench
@@ -64,6 +79,13 @@ otherwise crashes on NaN features.
 
 Committed results: `results/`.
 
+`summarize_matcalc.py` (env C) gives, per model and with the random seeds pooled
+and per seed, n, excluded % and the median, mean and 5/25/75/95th percentiles of
+the formation-energy error, fingerprint distance, softening (1 − scale) and the
+signed and absolute percentage errors of K, G and C_V. `--unphysical drop`
+(default, as in the paper) removes failed calculations and non-positive moduli
+or heat capacities. Run `merge_results.py` for every model first.
+
 ---
 
 ## `matpes/` — MatPES energy / force / stress
@@ -78,11 +100,12 @@ MATPES_RUNS=… sbatch --account=… submit_aggregate.sh
 ```
 
 `submit_aggregate.sh` lists the paper's seven models in its `RUN_DIRS` /
-`LABELS` arrays. **Only the v14 entry is reproducible from this repository** —
-MACE-OMAT-0, the DIRECT-selected subset model and the four random-seed replicas
-are outside its scope. Cut the two arrays down to the models you actually have;
-the script checks that they are the same length and that every directory exists.
-See [`../DATA.md`](../DATA.md) §8.
+`LABELS` arrays: the EnvTok model (v14), MACE-OMAT-0 (public), the DIRECT model
+and the four random-seed replicas (trained from the subsets of
+`04_subset_selection/DIRECT` and `04_subset_selection/random` with stages 06–08).
+Cut the two arrays down to the models you actually have; the script checks that
+they are the same length and that every directory exists. See
+[`../DATA.md`](../DATA.md) §8.
 
 > **Label the random-seed replicas `rdm1`…`rdm4`.** `--aggregate` treats any
 > label beginning with `rdm` / `seed` / `random` as a replica defining the noise
@@ -94,6 +117,13 @@ is deliberate: a model compared against itself must come out at exactly zero
 excess, which is a self-check on the ceiling arithmetic.
 
 Committed results: `paper_tables/`.
+
+`blowup_attribution.py` (env B) counts the atoms with a force error above
+10 eV/Å, the share of them in cells that contain a 0D or 1D fragment and in
+cells made only of nitrogen, and recomputes the bulk per-atom table (Table I)
+without the nitrogen-only cells. It takes the same `*_paper/` directories and
+labels as `--aggregate`, `--ceiling` (the reference model's label) and
+`--configs` (the MatPES extxyz the evaluations read).
 
 ---
 
@@ -109,13 +139,18 @@ export MODEL=/path/to/..._run-1.model
 sbatch --account=<your allocation> submit_stability.sh   # --dtype float64 --cueq
 ```
 
-> **Known issue (K1).** `build_worklist` puts the *same* `Atoms` object into
-> both the NVT and NPT lists, and `MD.fn` mutates positions in place. Whether it
-> bites depends on the rank count: NVT item *j* runs on rank `j % world` and NPT
-> item *j* on rank `(j + n_nvt/2) % world`, so the two ensembles usually land on
-> different processes and never notice. Where they land on the same process, the
-> NPT run starts from positions the NVT run already moved. **Add `atoms.copy()`
-> in `build_worklist` before running at a different node count.**
+> `build_worklist` puts the same `Atoms` object into the NVT and the NPT list.
+> This is harmless: `MD.fn` (mlip-arena 0.2.0) runs on `atoms.copy()` and never
+> changes the object it is given, so every run starts from the database structure
+> whatever the rank count.
+
+`summarize_stability.py` (env D) classifies the 80 NPT runs of each model as
+survived, physically diverged (singular cell matrix or temperature blow-up),
+CUDA OOM, other failure or truncated (wall-clock limit), from the
+`*-compression.parquet` and the `.failed_` / `.oom_` markers. It reports mean
+completion, finished fraction and the time of the first failure with the ramp's
+temperature and pressure. Physical divergence is given with and without OOM
+runs; the paper's percentages exclude them.
 
 ---
 
@@ -146,3 +181,16 @@ sbatch --account=<your allocation> submit_nebdft2k.sh
 separately. The 621-hop U-free split (646 in the full 1,681-hop index; the
 25 hops removed by the f-block cut are all U-free) is where the model's training and
 nebDFT2k's plain-PBE reference actually agree; quote that as the headline.
+
+`table_nebdft2k.py` (env D) builds Table II (MAE, RMSE, median |error| per
+Hubbard-U split on converged hops; random as mean ± SD over the seeds) and the
+median signed error of every model and its shift between the two splits.
+
+---
+
+## `radar/` — summary figure
+
+`build_radar_metrics.py` (numpy and pandas only) computes the 12 spokes of the
+radar figure from `matcalc_summary.csv`, `stability_npt_summary.csv`,
+`nebdft2k_table.csv`, `matpes/paper_tables/` and the per-atom files in the
+`*_paper/` directories (non-bulk median force error).

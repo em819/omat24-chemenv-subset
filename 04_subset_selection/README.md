@@ -98,3 +98,20 @@ Table S2).
 |---|---|---|---|
 | DIRECT | [`DIRECT/`](DIRECT/README.md) | 458,754 structures / 6,532,238 atoms | E |
 | random ×4 | [`random/`](random/README.md) | 356,249 structures / ~6.5 M atoms each | A |
+
+## Comparing the subsets
+
+`subset_statistics.py` (env A, numpy only) reports, for any set of training
+extxyz files, the number of structures and atoms, atoms per structure and the
+distribution of the DFT force norm |F_i| over all atoms (mean and 1st–99.9th
+percentiles), plus the largest force per structure. Files given under one label
+are pooled, e.g. the four random seeds. This backs the subset comparison in the
+Methods section and SI S2.5 / Fig. S1.
+
+```bash
+python subset_statistics.py \
+    --subset EnvTok subset_train.xyz \
+    --subset DIRECT DIRECT/subset_DIRECT_train.xyz \
+    --subset random random/random_seed{1,2,3,4}/train.xyz \
+    --reference random --compare DIRECT EnvTok --output-csv subset_statistics.csv
+```

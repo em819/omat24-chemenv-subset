@@ -14,6 +14,7 @@ of MACE's invariant descriptor space?
 | 10.2 | `2_analyze_chemenvs/` | **A** | 20 CPU nodes × 128 ranks, 48 h |
 | 10.3 | `3_extract_features/` | B | 2 nodes × 4 GPU, 24 h |
 | 10.4 | `4_cluster_metrics/` | B | 1 node × 4 GPU, 2 h |
+| 10.5 | `5_descriptor_analysis/` | A / B | 1 CPU node |
 
 Note the environment switch at step 10.2 — it is pure pymatgen/MPI, not MACE.
 
@@ -98,6 +99,35 @@ FEAT_DIR=… sbatch --account=<your allocation> submit_metrics.sh
 
 Without a GPU set `KNN_BACKEND=ckdtree` (choices: `auto`, `faiss`, `faiss-gpu`,
 `ckdtree`). The results are identical; only the speed differs.
+
+**Output:** the report card (`--out`, one row per token with `n_atoms`,
+`knn_purity`, `compactness_z_element`, `n_components`, ...) and the log, whose
+`=== summary ===` table holds the same per-token metrics.
+`4_cluster_metrics/chemenv_metrics.log` is the log of the published run
+(MACE-OMAT-0 medium, 12,019,558 atoms, 37,660 tokens with at least 20 atoms).
+
+The run uses `--min-size 20`; the paper analyses only the 18,445 tokens with
+at least 30 atoms. That filter is applied in step 10.5.
+
+## 10.5 `5_descriptor_analysis/`
+
+The analyses of SI S5 and of the latent-space paragraph of the main text, on
+the outputs of 10.3 and 10.4 (and, for training coverage, stage 03):
+
+| Script | Env | Paper |
+|---|---|---|
+| `summary_stats.py` | B | single connected region 98.42 %, 292 split, 96.9 % compact, purity range and mean, PCA dimensions (main text, SI S5.1) |
+| `neighbour_composition.py` + `submit_neighbour_composition.sh` | B | composition of the latent-space neighbours that carry a different descriptor (main text, SI S5.1) |
+| `extract_train_coverage.py` + `submit_extract_train_coverage.sh` | A | per-descriptor counts in the training set, from stage 03's `material_vectors.duckdb` |
+| `split_descriptors.py` | B | descriptors with several latent regions (SI S5.2) |
+| `diffuse_descriptors.py` | A | which descriptors are diffuse, element odds ratios (SI S5.3) |
+| `diffuse_xc_secondshell.py` | B | PBE vs PBE+U and host chemistry (SI S5.3) |
+
+`descriptor_common.py` holds the shared definitions: a descriptor is analysed
+if it has at least 30 atoms, *split* means at least two connected components of
+the k = 15 kNN graph, *diffuse* means `compactness_z_element < 0`. Run
+`extract_train_coverage.py` before `split_descriptors.py`; the other scripts are
+independent of each other.
 
 ---
 
