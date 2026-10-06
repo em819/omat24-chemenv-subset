@@ -6,8 +6,8 @@ existed on the cluster when the published results were produced.
 
 | Id | Directory | Python | Used by |
 |---|---|---|---|
-| **A** | `envA-chemenv/` | 3.10.13 | 00, 01, 02, 03, 04 (incl. `04/random`), 05, 10.2 |
-| **B** | `envB-mace/` | 3.12.12 | 06, 07, 08, 09/matpes, 10.1, 10.3, 10.4 |
+| **A** | `envA-chemenv/` | 3.10.13 | 00, 01, 02, 03, 04 (incl. `04/random`), 05, 10.2, 10.5 (`extract_train_coverage`, `diffuse_descriptors`) |
+| **B** | `envB-mace/` | 3.12.12 | 06, 07, 08, 09/matpes, 10.1, 10.3, 10.4, 10.5 (the other scripts) |
 | **C** | `envC-matcalc/` | 3.12.3 | 09/matcalc |
 | **D** | `envD-mliparena/` | 3.12.3 | 09/stability, 09/nebdft2k |
 | **E** | `envE-direct/` | 3.11.13 | 04/DIRECT |
@@ -88,7 +88,8 @@ EasyBuild names; substitute your site's equivalents.
 | 06 | `env/release/2024.1` only | CUDA is loaded **deliberately not** — mapping the CUDA libraries into 128 fork workers exhausts the commit limit |
 | 07, 08, 09/matpes, 10.1, 10.3, 10.4 | `env/release/2024.1`, `CUDA/12.6.0` | torch + `cuequivariance` acceleration |
 | 09/matcalc, 09/stability, 09/nebdft2k | `env/release/2024.1`, `Python/3.12.3-GCCcore-13.3.0`, `CUDA/12.6.0` | these venvs were built on the module Python |
-| 02, 03, 04, 05 | none — conda env only | pure DuckDB / numba, no MPI, no GPU |
+| 02, 03, 04, 05, 10.5 train coverage | none — conda env only | pure DuckDB / numba, no MPI, no GPU |
+| 10.5 neighbour composition | `env/release/2024.1` only | no CUDA module; the CUDA libraries come from the `nvidia-*` wheels in env B |
 | 04/DIRECT (featurise, select) | `env/release/2025.1`, `GCC`, with `$EBROOTGCCCORE/lib64` prepended to `LD_LIBRARY_PATH` | torch/dgl need a newer libstdc++ than the base OS has |
 
 ## Key versions

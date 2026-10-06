@@ -1,6 +1,6 @@
 # Stage 02 — Token frequency database
 
-**Env A** · `cpu` · 1 core · 1 day
+**Env A** · `cpu` · 1 task × 128 cores · 1 day
 
 Loads the stage-01 parquet files into DuckDB and builds the tables the rest of
 the pipeline queries.
@@ -48,4 +48,7 @@ sbatch submit_frequency.sh
 This database is read by **both** stage 03 and stage 04 — it is a shared input,
 not a throwaway intermediate. Do not delete it after stage 03.
 
-Single-core and a full day: the cost is DuckDB's parquet scan, not compute.
+`submit_frequency.sh` requests one task with 128 cores, and DuckDB uses all of them
+(`DUCK_THREADS` defaults to `$SLURM_CPUS_PER_TASK`). The as-run job requested a
+single core and ran DuckDB with its default configuration; set `DUCK_THREADS=1`
+to run on a single core. The cost is DuckDB's parquet scan, not compute.

@@ -54,8 +54,11 @@ site indices must stay aligned with the input structure.
 ### 01b `concat_to_parquet.py`
 
 Streams the per-rank HDF5 shards into one parquet file per sub-dataset via
-`pq.ParquetWriter`, dropping perturbation-artefact rows matching
-`_999_\d+_\d+$`.
+`pq.ParquetWriter`. Every row is written; nothing is filtered. Along the way it
+counts the Chemenv failure rows (`coord_symbol` `INVALID` or `UNKNOWN:n`) and
+cross-checks that count against the tokens carrying the `perturb_scale = 999`
+sentinel (`_999_\d+_\d+$`), printing a warning if the two differ. These rows stay
+in the parquet and in every downstream count.
 
 - **Input:** the rank HDF5 files; argv = `<subset name> <expected ranks>`.
 - **Output:** one parquet per sub-dataset.
@@ -91,7 +94,7 @@ rather than a stable quantity.
 
 ## 02 — Token frequency database
 
-**Env A** · `cpu` · 1 core · 1 day
+**Env A** · `cpu` · 1 task × 128 cores · 1 day
 
 `build_frequency_db.py` loads the parquet files into DuckDB and builds three
 tables: `data` (all sites), `chemenv_frequency_table` (token → count), and
@@ -111,7 +114,8 @@ not a throwaway intermediate. Keep it.
 **Env A** · `cpu` · 128 cores · 2 days
 
 `build_integer_tokens.py` assigns each distinct token an integer id
-(`environment_mapping`), counts occurrences (`env_counts`), writes 1000 batch
+(`environment_mapping`), counts each token's occurrences per material
+(`env_counts`: `mat_id`, `env_id`, `count`), writes 1000 batch
 parquet files sharded by `hash(mat_id) % 1000`, and assembles `material_vectors`
 — for each material, the list of token ids it contains and how often.
 
@@ -373,7 +377,8 @@ D = 256 (128 features × 2 layers), written as shards.
 
 kNN purity, size-matched compactness null, and kNN-graph connected components
 per token. Run with `--k 30 --k-graph 15 --var-keep 0.95 --max-dims 50
---min-size 20 --knn-backend faiss-gpu`.
+--max-atoms 0 --min-size 20 --knn-backend faiss-gpu` (`--max-atoms 0` = all
+atoms; the script's default subsamples to 1.5 M).
 
 **Boundary check:** 8 shards × ~82,219 = 657,756 structures / 12,019,558 atoms —
 the stage-06 validation set.
@@ -384,7 +389,7 @@ the stage-06 validation set.
 > are. The script reports the relative-error correlation alongside it; that is
 > the one to read.
 
-### 10.5 `5_descriptor_analysis/` — Env A / B · 1 CPU node
+### 10.5 `5_descriptor_analysis/` — Env A / B · 1 CPU node (train coverage) + 1 GPU (neighbour composition)
 
 The analyses of SI S5 on the outputs of 10.3, 10.4 and stage 03 (see the
 stage-10 README). **Boundary checks:** 18,445 descriptors with at least 30

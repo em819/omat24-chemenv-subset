@@ -27,8 +27,10 @@ that has to happen from a login node first:
 | stability | `atomind/mlip-arena` → `stability/random-mixture.db` | `hf_hub_download(...)` (command in `submit_stability.sh`) |
 | nebDFT2k | LiTraj mirror, 65 MB | `python run_litraj_nebdft2k.py --prefetch --cache-dir <DIR>` |
 
-If the cache is missing the scripts warn and continue, so a compute node with
-internet just works. `BENCH_OFFLINE=1` makes them stop instead.
+If the MatCalc-Bench or stability cache is missing, their submit scripts warn
+and continue, so a compute node with internet just works; `BENCH_OFFLINE=1` makes
+them stop instead. The nebDFT2k submit script always stops when its data is
+missing, printing the `--prefetch` command.
 
 After the runs, one summary script per benchmark turns the raw outputs of all
 models into the numbers quoted in the paper, and `radar/` combines them:

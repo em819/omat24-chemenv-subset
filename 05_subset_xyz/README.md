@@ -43,8 +43,10 @@ up immediately in the counts.
 
 > This stage streams raw text and never parses a frame, which is what makes its
 > output byte-faithful to OMat24. It therefore cannot read an ASE database and
-> cannot read a gzipped file. Converting the OMat24 ASE databases to extxyz is
-> outside the scope of this repository — see [`../DATA.md`](../DATA.md).
+> cannot read a gzipped file. Convert the OMat24 ASE databases to extxyz with
+> stage 00 ([`../00_convert_omat24/`](../00_convert_omat24/)); its output,
+> `<subset>/all_structures_<subset>.xyz`, is found by the default `GLOB_PATTERN`.
+> See [`../DATA.md`](../DATA.md).
 
 ## Boundary check
 

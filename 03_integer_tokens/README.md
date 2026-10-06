@@ -35,7 +35,7 @@ sbatch submit_integer_tokens.sh
 | Table / file | Contents |
 |---|---|
 | `environment_mapping` | token string → integer id |
-| `env_counts` | integer id → corpus count |
+| `env_counts` | one row per (material, token string): `mat_id`, `env_id`, `count` = occurrences of that token in that material |
 | 1000 batch parquets | sharded by `hash(mat_id) % 1000` |
 | `material_vectors` | material → (token ids, counts), with `mat_index = ROW_NUMBER() OVER (ORDER BY mat_id) - 1` |
 

@@ -222,14 +222,20 @@ The three dataset paths in `preprocess.yaml` ship as `CHANGE_ME` placeholders;
 | `XYZ` | 10.2's default output | 10.3 input |
 | `FEATURE_MODEL` | *(required, 10.3)* | the model features are extracted from — **the same one 10.1 used**, and never a `_compiled.model` |
 | `OUT_DIR` | `$SLURM_SUBMIT_DIR/mace_features` | 10.3 output |
-| `FEAT_DIR` | `../3_extract_features/mace_features` | 10.4 input |
+| `FEAT_DIR` | `../3_extract_features/mace_features` | 10.4 and 10.5 (neighbour composition) input |
 | `REPORT_OUT` | `$SLURM_SUBMIT_DIR/report_card.parquet` | 10.4 output |
+| `KNN_BACKEND` | `faiss-gpu` | kNN backend. 10.4: `auto`, `faiss`, `faiss-gpu` or `ckdtree` (`ckdtree` without a GPU); 10.5 neighbour composition: `faiss` (CPU) or `faiss-gpu` |
+| `REPORT_CARD` | `../4_cluster_metrics/report_card.parquet` | 10.5 input (the 10.4 output) |
+| `TOKEN_VEC_DB` | *(required, 10.5 train coverage)* | stage 03's `material_vectors.duckdb` |
+| `COVERAGE_OUT` | `train_coverage.parquet` | 10.5 train-coverage output |
+| `MIN_ATOMS` | `30` | 10.5 train coverage: only descriptors with at least this many atoms get a row. Keep it equal to `split_descriptors.py --min-atoms`; a larger value makes descriptors without a row count as absent from training |
+| `OUT_JSON` | `$SLURM_SUBMIT_DIR/neighbour_composition.json` | 10.5 neighbour-composition output |
 
 ### Everywhere
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CHEMENV_CONDA_ENV` | `active_learning_omat24_python310` | the conda env holding env A (stages 01–05, 10.2) |
+| `CHEMENV_CONDA_ENV` | `active_learning_omat24_python310` | the conda env holding env A (stages 01–05, 10.2, 10.5 train coverage) |
 
 `#SBATCH --account` cannot read a shell variable, so it stays `CHANGE_ME` in
 every submit script — edit it, or override at submit time with
@@ -265,9 +271,13 @@ are correct as they stand.
 
 ### Benchmark reference data (stage 09)
 
-Each benchmark fetches its own, and compute nodes are usually offline, so stage
-these on a login node first. `nebdft2k` has an explicit `--prefetch` mode; the
-others fail fast with the command to run. See `09_benchmarks/README.md`.
+MatCalc-Bench, stability and nebDFT2k each fetch their own reference data, and
+compute nodes are usually offline, so stage it on a login node first. `nebdft2k`
+has an explicit `--prefetch` mode, and its submit script stops with that command
+if the data is missing. The matcalc and stability submit scripts only warn when
+their cache is missing and continue (the library then tries to download, which
+fails on an offline node); set `BENCH_OFFLINE=1` to make them stop instead.
+MatPES reads an extxyz you supply (`TESTSET`). See `09_benchmarks/README.md`.
 
 ---
 

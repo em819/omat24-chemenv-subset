@@ -22,7 +22,7 @@ OMat24 ASE DBs ──── 00  convert to extxyz, drop rare earths (read by 05 
    │  01  tokenise every site               2560 MPI ranks × 2 d × 11 sub-datasets
    ▼
 per-site Chemenv tokens (parquet)
-   │  02  frequency database                1 core × 1 d
+   │  02  frequency database                128 cores × 1 d
    │  03  integer token ids + material vectors   128 cores × 2 d
    ▼
    │  04  coverage-driven subset selection   128 cores × 2 d, 400 GB
@@ -61,7 +61,7 @@ from the data archive (see below); stage 05 turns that list into a training set.
 | 00 | `convert_omat24.py` ×11 | cpu | 5 × 128 = 640 ranks | — | 2 d each | A |
 | 01a | `tokenize_omat24.py` ×11 | cpu | 20 × 128 = 2560 ranks | — | 2 d each | A |
 | 01b | `concat_to_parquet.py` | cpu | 1 × 11 | — | 1 d | A |
-| 02 | `build_frequency_db.py` | cpu | 1 × 1 (1 core) | — | 1 d | A |
+| 02 | `build_frequency_db.py` | cpu | 1 × 1 (128 c) | — | 1 d | A |
 | 03 | `build_integer_tokens.py` | cpu | 1 × 1 (128 c) | — | 2 d | A |
 | 04 | `select_subset.py` | cpu | 1 × 1 (128 c, 400 GB) | — | 2 d | A |
 | 04/DIRECT | `featurize_m3gnet.py` | cpu | 4 × 128 | — | 3 h | E |
@@ -80,6 +80,8 @@ from the data archive (see below); stage 05 turns that list into a training set.
 | 10.2 | `analyze_predictions.py` | cpu | 20 × 128 = 2560 ranks | — | 48 h | A |
 | 10.3 | `extract_mace_features.py` | gpu | 2 × 4 | 8 | 24 h | B |
 | 10.4 | `chemenv_feature_metrics.py` | gpu | 1 × 4 | 4 | 2 h | B |
+| 10.5 | `extract_train_coverage.py` | cpu | 1 × 1 (128 c) | — | 2 h | A |
+| 10.5 | `neighbour_composition.py` | gpu | 1 × 1 (32 c) | 1 | 1 h | B |
 
 All SLURM scripts were written for [MeluXina](https://docs.lxp.lu/) (EasyBuild
 modules, `cpu` / `gpu` partitions, 128-core CPU nodes, 4× A100-40GB GPU nodes).
@@ -93,8 +95,8 @@ them, and the EasyBuild modules that must be loaded alongside.
 
 | Id | Used by | Python | Key packages |
 |---|---|---|---|
-| **A** `envA-chemenv` | 01–05, 10.2 | 3.10.13 | pymatgen 2025.6.14, mpi4py 4.1.0, h5py 3.14.0, duckdb 1.4.2, numba 0.61.2, fairchem-core 2.3.0 |
-| **B** `envB-mace` | 06–08, 09/matpes, 10.1/10.3/10.4 | 3.12.12 | mace-torch 0.3.14, torch 2.5.0, cuequivariance 0.8.1 |
+| **A** `envA-chemenv` | 01–05, 10.2, 10.5 (part) | 3.10.13 | pymatgen 2025.6.14, mpi4py 4.1.0, h5py 3.14.0, duckdb 1.4.2, numba 0.61.2, fairchem-core 2.3.0 |
+| **B** `envB-mace` | 06–08, 09/matpes, 10.1/10.3/10.4, 10.5 (part) | 3.12.12 | mace-torch 0.3.14, torch 2.5.0, cuequivariance 0.8.1 |
 | **C** `envC-matcalc` | 09/matcalc | 3.12.3 | matcalc 0.5.1, mace-torch 0.3.16, pymatgen 2026.5.4, phonopy 4.1.0 |
 | **D** `envD-mliparena` | 09/stability, 09/nebdft2k | 3.12.3 | mlip-arena 0.2.0, litraj 0.1, mace-torch 0.3.16 |
 | **E** `envE-direct` | 04/DIRECT | 3.11.13 | matgl 4.0.3, torch 2.4.1 (CPU), dgl 2.5.0, scikit-learn 1.9.0 |

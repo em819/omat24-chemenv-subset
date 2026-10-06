@@ -110,8 +110,10 @@ Replace them if it is not.
 ## 4–6. Benchmark reference data
 
 Each benchmark downloads its own. Compute nodes are often offline, so stage
-these from a machine with internet first; the scripts warn and continue when the
-cache is missing, and `BENCH_OFFLINE=1` makes them stop instead.
+these from a machine with internet first. When the data is missing, the
+MatCalc-Bench and stability submit scripts warn and continue (the library then
+tries to download), and `BENCH_OFFLINE=1` makes them stop instead; the nebDFT2k
+submit script always stops, printing the `--prefetch` command.
 
 | Benchmark | What | How to stage it |
 |---|---|---|

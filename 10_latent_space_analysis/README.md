@@ -14,7 +14,7 @@ of MACE's invariant descriptor space?
 | 10.2 | `2_analyze_chemenvs/` | **A** | 20 CPU nodes × 128 ranks, 48 h |
 | 10.3 | `3_extract_features/` | B | 2 nodes × 4 GPU, 24 h |
 | 10.4 | `4_cluster_metrics/` | B | 1 node × 4 GPU, 2 h |
-| 10.5 | `5_descriptor_analysis/` | A / B | 1 CPU node |
+| 10.5 | `5_descriptor_analysis/` | A / B | train coverage: 1 CPU node (128 c), 2 h; neighbour composition: 1 GPU, 1 h; the other scripts have no submit script |
 
 Note the environment switch at step 10.2 — it is pure pymatgen/MPI, not MACE.
 
@@ -93,7 +93,7 @@ components of the kNN graph.
 
 ```bash
 FEAT_DIR=… sbatch --account=<your allocation> submit_metrics.sh
-# --k 30 --k-graph 15 --var-keep 0.95 --max-dims 50 --min-size 20
+# --k 30 --k-graph 15 --var-keep 0.95 --max-dims 50 --max-atoms 0 --min-size 20
 # --knn-backend faiss-gpu
 ```
 
