@@ -13,9 +13,10 @@ existed on the cluster when the published results were produced.
 | **E** | `envE-direct/` | 3.11.13 | 04/DIRECT |
 
 Every dependency resolves to a released version — there are no git checkouts
-or local-path installs, so the `requirements.txt` files are complete. Env E
-takes the CPU builds of torch and dgl from their own wheel indexes, which its
-`requirements.txt` names.
+or local-path installs, so the `requirements.txt` files are complete. Envs C and
+D take their CUDA 12.6 build of torch from the PyTorch wheel index, and env E
+takes the CPU builds of torch and dgl from their own wheel indexes; each
+`requirements.txt` names the index it needs in its first line(s).
 
 ## Rebuilding
 
@@ -34,14 +35,16 @@ portable across platforms, since the pinned build strings in `environment.yml`
 may not exist on another OS:
 
 ```bash
-conda create -n chemenv python=3.10.13
-conda activate chemenv
+conda create -n active_learning_omat24_python310 python=3.10.13
+conda activate active_learning_omat24_python310
 pip install -r envA-chemenv/requirements.txt
 ```
 
-`environment-from-history.yml` records only the packages that were explicitly
-requested, which is the right starting point if you are adapting rather than
-reproducing.
+`environment-from-history.yml` is, despite its name, not a `--from-history`
+export: it lists the same 27 conda packages, with the same pinned builds, as
+`environment.yml`, but without the pip section. Use it if you want conda to
+create only Python and its supporting conda packages and then install
+`requirements.txt` with pip yourself.
 
 > `mpi4py` and `h5py` are pip wheels here, built against the OpenMPI and HDF5
 > supplied by the cluster modules below. If you rebuild against a different MPI
@@ -63,6 +66,11 @@ pip install -r envB-mace/requirements.txt
 `pyvenv.cfg` records the interpreter each venv was created from. Envs B, D and
 E were created with [uv](https://github.com/astral-sh/uv) and contain no `pip`;
 `uv pip install -r …` works equally well.
+
+Envs C and D were built on MeluXina's `Python/3.12.3-GCCcore-13.3.0` module,
+which is what `python-version.txt` and `pyvenv.cfg` record. That module has since
+been updated in place and now reports Python 3.12.14, so the exact 3.12 patch
+release that ran the published benchmarks cannot be confirmed.
 
 Env E needs uv with two extra settings: the dgl 2.5.0 CPU wheel's metadata
 says `2.5.0+cpu` while its file name says `2.5.0`, and torch comes from the
@@ -86,15 +94,15 @@ EasyBuild names; substitute your site's equivalents.
 | 00 | `env/release/2024.1`, `OpenMPI/5.0.3-GCC-13.3.0` | `mpi4py` is linked against it |
 | 01, 10.2 | `env/release/2024.1`, `OpenMPI/5.0.3-GCC-13.3.0`, `HDF5/1.14.5-gompi-2024a` | `mpi4py` and parallel `h5py` are linked against these |
 | 06 | `env/release/2024.1` only | CUDA is loaded **deliberately not** — mapping the CUDA libraries into 128 fork workers exhausts the commit limit |
-| 07, 08, 09/matpes, 10.1, 10.3, 10.4 | `env/release/2024.1`, `CUDA/12.6.0` | torch + `cuequivariance` acceleration |
+| 07, 08, 09/matpes, 10.1, 10.3 | `env/release/2024.1`, `CUDA/12.6.0` | torch + `cuequivariance` acceleration |
 | 09/matcalc, 09/stability, 09/nebdft2k | `env/release/2024.1`, `Python/3.12.3-GCCcore-13.3.0`, `CUDA/12.6.0` | these venvs were built on the module Python |
 | 02, 03, 04, 05, 10.5 train coverage | none — conda env only | pure DuckDB / numba, no MPI, no GPU |
-| 10.5 neighbour composition | `env/release/2024.1` only | no CUDA module; the CUDA libraries come from the `nvidia-*` wheels in env B |
+| 10.4, 10.5 neighbour composition | `env/release/2024.1` only | no CUDA module; the CUDA libraries come from the `nvidia-*` wheels in env B |
 | 04/DIRECT (featurise, select) | `env/release/2025.1`, `GCC`, with `$EBROOTGCCCORE/lib64` prepended to `LD_LIBRARY_PATH` | torch/dgl need a newer libstdc++ than the base OS has |
 
 ## Key versions
 
-Useful for a quick compatibility check:
+Useful for a quick compatibility check (— = not installed in that env):
 
 | Package | A | B | C | D | E |
 |---|---|---|---|---|---|
@@ -105,11 +113,11 @@ Useful for a quick compatibility check:
 | pymatgen | 2025.6.14 | — | 2026.5.4 | 2026.5.4 | 2026.5.4 |
 | mace-torch | — | 0.3.14 | 0.3.16 | 0.3.16 | — |
 | cuequivariance | — | 0.8.1 | — | 0.8.1 | — |
-| duckdb / numba | 1.4.2 / 0.61.2 | — | — | — | — |
-| mpi4py / h5py | 4.1.0 / 3.14.0 | — | — | — | — |
+| duckdb / numba | 1.4.2 / 0.61.2 | 1.5.0 / 0.64.0 | — | — | — |
+| mpi4py / h5py | 4.1.0 / 3.14.0 | — / 3.15.1 | — / 3.16.0 | — / 3.16.0 | — |
 | matcalc / phonopy | — | — | 0.5.1 / 4.1.0 | — | — |
 | mlip-arena / litraj | — | — | — | 0.2.0 / 0.1 | — |
-| matgl / dgl / scikit-learn | — | — | — | — | 4.0.3 / 2.5.0 / 1.9.0 |
+| matgl / dgl / scikit-learn | 2.0.6 / — / — | — / — / 1.8.0 | — / — / 1.9.0 | — | 4.0.3 / 2.5.0 / 1.9.0 |
 
 The model was **trained** with `mace-torch` 0.3.14 (env B) and **benchmarked**
 partly with 0.3.16 (envs C and D). That is not a problem — the exported

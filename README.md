@@ -101,8 +101,9 @@ them, and the EasyBuild modules that must be loaded alongside.
 | **D** `envD-mliparena` | 09/stability, 09/nebdft2k | 3.12.3 | mlip-arena 0.2.0, litraj 0.1, mace-torch 0.3.16 |
 | **E** `envE-direct` | 04/DIRECT | 3.11.13 | matgl 4.0.3, torch 2.4.1 (CPU), dgl 2.5.0, scikit-learn 1.9.0 |
 
-Every dependency resolves to a released PyPI version — there are no git or
-local installs to chase.
+Every dependency resolves to a released version — on PyPI, or for torch (envs C,
+D, E) and dgl (env E) on the wheel index named at the top of that env's
+`requirements.txt`. There are no git or local installs to chase.
 
 ## Running it somewhere other than MeluXina
 

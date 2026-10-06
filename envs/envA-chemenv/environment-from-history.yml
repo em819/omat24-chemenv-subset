@@ -30,5 +30,3 @@ dependencies:
   - xorg-libx11=1.8.12=h9b100fa_1
   - ld_impl_linux-64=2.40=h12ee557_0
   - tk=8.6.14=h993c535_1
-prefix: 
-  /project/home/p200716/evgeny/new_conda_base_path/miniconda3/envs/active_learning_omat24_python310
