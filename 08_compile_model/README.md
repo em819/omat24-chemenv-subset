@@ -11,14 +11,19 @@
 This is not a separate program. `compile.yaml` sets `max_num_epochs` to a value
 ≤ the checkpoint's epoch, so MACE's `while epoch < max_num_epochs` loop is
 skipped entirely and `run_train` falls straight through to the cueq→e3nn
-conversion, model save and final evaluation.
+conversion, model save and final evaluation. The models are written before the
+final evaluation; in the published run that evaluation did not finish within the
+1-h limit, which is harmless.
 
 ## Before running
 
 Copy the checkpoint you want to export into this directory. `checkpoints_dir`,
 `model_dir` and `results_dir` are all `"."`, which keeps the live stage-07
-training run untouched, and `restart_latest: True` picks up the newest `.pt`
-it finds there — so put exactly one in.
+training run untouched. `restart_latest: True` loads the checkpoint with the
+highest epoch among the files named `<name>_run-<seed>_epoch-<N>.pt` — so put
+exactly one in, and make sure its name starts with `compile.yaml`'s `name`. A
+checkpoint with a different name is ignored with only a warning, and the job
+then trains from scratch instead of exporting.
 
 ## Run
 
@@ -34,7 +39,8 @@ you are exporting.
 
 ## Output
 
-`<name>_compiled.model` and `<name>_run-1.model`.
+`<name>_compiled.model` and `<name>_run-1.model`, plus `<name>.model`, which holds
+the same weights as `_run-1.model`.
 
 > **Both exports are used downstream.** MatCalc-Bench and MatPES take
 > `_compiled.model`; the MLIP-Arena stability and LiTraj NEB benchmarks, and

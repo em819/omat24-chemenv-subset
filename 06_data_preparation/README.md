@@ -23,13 +23,20 @@ naming the key it is still seeing. Below the block: `h5_prefix` (default
 `processed_data/`), `r_max: 6.0`, `batch_size: 32`, `num_process: 128`, the
 68-entry `atomic_numbers` z-table and the 89-entry `E0s`.
 
-> **You must supply a validation and a test set.** Neither comes out of stages
-> 01–05, and neither is among the 11 OMat24 training sub-datasets. The published
-> run used the **official OMat24 validation split** (657,756 frames) and
-> **MatPES PBE 2025.2** with rare earths removed (323,096 frames) as the test
-> set. If you cannot obtain those, hold out part of the selected subset for
-> validation and drop `test_file` — the model will be comparable, the loss curve
-> will not be. Either way, filter rare earths: the z-table is
+> **You must supply a validation set; the test set is optional.** Neither comes
+> out of stages 01–05, and neither is among the 11 OMat24 training sub-datasets.
+> The published run used the **official OMat24 validation split** (657,756
+> frames) and **MatPES PBE 2025.2** with rare earths removed (323,096 frames) as
+> the test set. If you cannot obtain the validation split, hold out part of the
+> selected subset for validation — the model will be comparable, the loss curve
+> will not be.
+>
+> The test shards have no effect on the model: stages 07–08 never read them.
+> MACE picks up only files ending in `_test.h5` from `test_dir`, and stage 06
+> names them `test_<i>.h5`. To skip the test set, delete the `test_file` line.
+> The MatPES evaluation is done in stage 09.
+>
+> Either way, filter rare earths: the z-table is
 > {1…56} ∪ {72…83}, and `atomic_numbers` encodes exactly that.
 >
 > The 89 `E0s` are OMat24's PBE isolated-atom energies. Correct as they stand if
@@ -48,7 +55,10 @@ sbatch --account=<your allocation> submit_preprocess.sh
 ## Output
 
 `processed_data/{train,val,test}/` (128 + 16 + 16 HDF5 shards) and
-`statistics_fixed.json`.
+`statistics_fixed.json`, written under the directory you submit from (normally
+`06_data_preparation/`). Stages 07 and 08 read it as `../processed_data/` from
+their own directories, so make it visible there, e.g. from the repository root:
+`ln -s 06_data_preparation/processed_data processed_data`.
 
 ## Notes
 

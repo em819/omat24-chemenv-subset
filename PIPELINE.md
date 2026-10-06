@@ -242,9 +242,13 @@ pass with `mat1 and mat2 shapes cannot be multiplied (Nx68 and 89x1)`), and pins
 `mean`/`std` to 0.0/1.0. `submit_preprocess.sh` chains it automatically.
 
 - **Input:** `preprocess.yaml`. Its three dataset paths ship as `CHANGE_ME`
-  placeholders and must be edited (`r_max` 6.0, `batch_size` 32,
-  `num_process` 128, 68 atomic numbers, 89 E0s are the published values).
-- **Output:** `processed_data/{train,val,test}/` + `statistics_fixed.json`.
+  placeholders and must be edited, or the `test_file` line deleted: the test set
+  is optional, because stages 07–08 never read the test shards (MACE picks up
+  only `*_test.h5`; stage 06 writes `test_<i>.h5`). `r_max` 6.0, `batch_size` 32,
+  `num_process` 128, 68 atomic numbers and 89 E0s are the published values.
+- **Output:** `processed_data/{train,val,test}/` + `statistics_fixed.json`, under
+  the submit directory. Stages 07–08 read `../processed_data/`, so symlink it
+  next to them (see the stage-06 README).
 - **Launch:** `sbatch submit_preprocess.sh`.
 
 **Boundary check:** 795,721 train + 657,756 val + 323,096 test configurations →
@@ -254,7 +258,7 @@ pass with `mat1 and mat2 shapes cannot be multiplied (Nx68 and 89x1)`), and pins
 
 ## 07 — Training
 
-**Env B** · `gpu` · 2 nodes × 4 A100 · 2 days
+**Env B** · `gpu` · 2 nodes × 4 A100 · 2 days per job (the published run needed two jobs, ~3.8 days)
 
 `run_mace.py train.yaml`. Architecture matches MACE-OMAT-0:
 `RealAgnosticDensityResidualInteractionBlock`, `hidden_irreps
@@ -269,7 +273,10 @@ batch size 128 per GPU; `enable_cueq`; distributed.
 
 **Boundary check:** the training log reports
 `Head 'Default' training dataset size: 795721` and `avg_num_neighbors 40.5113`.
-The published model is the **epoch-792** checkpoint.
+The published model is the **epoch-792** checkpoint, the epoch with the lowest
+validation loss (not the last one). The run needed a resubmission after the
+2-day limit and ends with an expected DDP error after early stopping; see the
+stage-07 README.
 
 ---
 
@@ -284,9 +291,12 @@ model save.
 
 Copy the checkpoint you want to export into this directory first —
 `checkpoints_dir`, `model_dir` and `results_dir` are all `"."` so the live
-training run is untouched.
+training run is untouched. MACE loads the highest-epoch checkpoint whose
+filename starts with `<name>_run-<seed>`; a checkpoint with a different name is
+ignored and the job trains from scratch instead.
 
-- **Output:** `<name>_compiled.model` and `<name>_run-1.model`.
+- **Output:** `<name>_compiled.model` and `<name>_run-1.model` (plus
+  `<name>.model`, identical weights to `_run-1.model`).
 - **Launch:** `sbatch submit_compile.sh`.
 
 > Stage 09 uses **both**: MatCalc and MatPES take `_compiled.model`, while the
