@@ -1,11 +1,13 @@
 # Subset selection from OMat24 with interpretable local chemical-environment descriptors
 
-Code accompanying the manuscript *(title / journal / DOI — fill in)*.
+Code accompanying the manuscript *Atoms that Matter: Largest Materials Datasets
+Are 99% Redundant, and Local Chemistry Can Guide the Required 1%* by
+E. Moerman, I. Poltavsky, A. Charkin-Gorbulin and A. Tkatchenko.
 
 This repository contains the complete workflow used to (1) tokenise every local
-chemical environment in the OMat24 training split into interpretable Chemenv
-descriptors, (2) select a minimal training subset that covers the resulting
-descriptor space, (3) train a MACE machine-learned force field on that subset,
+chemical environment in the OMat24 training split into interpretable EnvTok
+descriptors (called Chemenv tokens in the code), (2) select a minimal training
+subset that covers the resulting descriptor space, (3) train a MACE machine-learned force field on that subset,
 (4) benchmark it, and (5) analyse how the descriptor tokens map onto the
 model's latent space.
 

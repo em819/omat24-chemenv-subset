@@ -11,7 +11,7 @@ authors:
     given-names: Evgeny
     email: evgeny.moerman@uni.lu
     affiliation: University of Luxembourg
-repository-code: 'https://github.com/CHANGE_ME/omat24-chemenv-subset'
+repository-code: 'https://github.com/em819/omat24-chemenv-subset'
 license: MIT
 version: 1.0.0
 date-released: '2026-09-11'
@@ -24,11 +24,18 @@ keywords:
   - chemenv
 preferred-citation:
   type: article
-  title: 'Select Local, Generalize Global: Interpretable, chemical-environment-based subset selection for general-purpose machine-learning force fields'
+  title: 'Atoms that Matter: Largest Materials Datasets Are 99% Redundant, and Local Chemistry Can Guide the Required 1%'
   authors:
     - family-names: Moerman
       given-names: Evgeny
       affiliation: University of Luxembourg
+    - family-names: Poltavsky
+      given-names: Igor
+      affiliation: University of Luxembourg
+    - family-names: Charkin-Gorbulin
+      given-names: Anton
+      affiliation: University of Luxembourg
+    - family-names: Tkatchenko
+      given-names: Alexandre
+      affiliation: University of Luxembourg
   year: 2026
-  doi: 'TODO'
-  journal: 'TODO'
