@@ -153,7 +153,7 @@ the six comparison models the full MatPES table aggregates. See
 
 ## Data availability
 
-Not in git. Deposited at *(Zenodo DOI — fill in)*:
+Deposited at *10.5281/zenodo.23137852*:
 
 - **`best_subset_*.txt`** — the 795,721 selected OMat24 material ids. The single
   most reusable artefact here: it reproduces the training set without repeating

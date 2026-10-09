@@ -176,10 +176,6 @@ start at stage 05.
 Also published: `env_ids_found_distribution.txt`, the per-token atom counts of
 the selected subset (5,463,490 rows summing to 6,566,253 atoms).
 
-> **The archive DOI in `README.md` is still a placeholder.** Until it is filled
-> in, this shortcut is not actually available to anyone outside the group, and
-> stages 01–04 are the only route to the id list.
-
 ---
 
 ## Working space
